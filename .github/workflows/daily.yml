@@ -1,0 +1,84 @@
+name: Dagsrapport
+
+on:
+  schedule:
+    # 07.00 svensk tid. GitHub kör i UTC: 05.00 UTC = 07 sommartid, 06.00 UTC = 07 vintertid.
+    # Steget "Bara kl 07" släpper bara igenom den körning som träffar 07 i Stockholm.
+    - cron: "0 5 * * *"
+    - cron: "0 6 * * *"
+  workflow_dispatch: {}
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: dagsrapport
+  cancel-in-progress: false
+
+jobs:
+  rapport:
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deploy.outputs.page_url }}
+    steps:
+      - name: Bara kl 07 svensk tid
+        id: gate
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ] || [ "$(TZ=Europe/Stockholm date +%H)" = "07" ]; then
+            echo "run=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "run=false" >> "$GITHUB_OUTPUT"; echo "Inte 07 i Stockholm, hoppar över."
+          fi
+
+      - uses: actions/checkout@v4
+        if: steps.gate.outputs.run == 'true'
+
+      - uses: actions/setup-python@v5
+        if: steps.gate.outputs.run == 'true'
+        with:
+          python-version: "3.12"
+
+      - name: Kampanjkontroll + hämta Juicy + bygg sidan
+        if: steps.gate.outputs.run == 'true'
+        env:
+          JUICY_SE_TOKEN: ${{ secrets.JUICY_SE_TOKEN }}
+          JUICY_DK_TOKEN: ${{ secrets.JUICY_DK_TOKEN }}
+          JUICY_NO_TOKEN: ${{ secrets.JUICY_NO_TOKEN }}
+          JUICY_FI_TOKEN: ${{ secrets.JUICY_FI_TOKEN }}
+          JUICY_DE_TOKEN: ${{ secrets.JUICY_DE_TOKEN }}
+          JUICY_HOMELYST_TOKEN: ${{ secrets.JUICY_HOMELYST_TOKEN }}
+          JUICY_HUSTOVALD_TOKEN: ${{ secrets.JUICY_HUSTOVALD_TOKEN }}
+        run: python build.py
+
+      - name: Lösenordsskydda sidan
+        if: steps.gate.outputs.run == 'true'
+        env:
+          PW: ${{ secrets.DAGSRAPPORT_PASSWORD }}
+          SALT: ${{ secrets.DAGSRAPPORT_SALT }}
+        run: |
+          npx -y staticrypt@3.5.4 site/index.html -d site -p "$PW" --salt "$SALT" --config false --short \
+            --remember 365 --template-title "Dagsrapport" --template-instructions "Skriv lösenordet" \
+            --template-placeholder "Lösenord" --template-button "Öppna" --template-remember "Kom ihåg mig" \
+            --template-error "Fel lösenord" --template-color-primary "#1baf7a" --template-color-secondary "#f6f5f2"
+          grep -q "staticrypt" site/index.html
+
+      - uses: actions/configure-pages@v5
+        if: steps.gate.outputs.run == 'true'
+
+      - uses: actions/upload-pages-artifact@v3
+        if: steps.gate.outputs.run == 'true'
+        with:
+          path: site
+
+      - name: Publicera
+        id: deploy
+        if: steps.gate.outputs.run == 'true'
+        uses: actions/deploy-pages@v4
+
+      - name: Larma om något gick fel (GitHub mejlar då)
+        if: steps.gate.outputs.run == 'true'
+        run: |
+          if [ -f errors.txt ]; then cat errors.txt; exit 1; fi
