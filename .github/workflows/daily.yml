@@ -2,10 +2,10 @@ name: Dagsrapport
 
 on:
   schedule:
-    # 07.00 svensk tid. GitHub kör i UTC: 05.00 UTC = 07 sommartid, 06.00 UTC = 07 vintertid.
-    # Steget "Bara kl 07" släpper bara igenom den körning som träffar 07 i Stockholm.
-    - cron: "0 5 * * *"
-    - cron: "0 6 * * *"
+    # GitHub hoppar ibland över schemalagda körningar (särskilt på hela timmar), så vi försöker
+    # var 20:e minut 05–09 UTC. Steget "Dags att köra?" släpper bara igenom första försöket
+    # efter 07.00 svensk tid som ännu inte byggt dagens rapport (built.txt på sidan).
+    - cron: "7,27,47 5-9 * * *"
   workflow_dispatch: {}
 
 permissions:
@@ -24,13 +24,19 @@ jobs:
       name: github-pages
       url: ${{ steps.deploy.outputs.page_url }}
     steps:
-      - name: Bara kl 07 svensk tid
+      - name: Dags att köra?
         id: gate
         run: |
-          if [ "${{ github.event_name }}" = "workflow_dispatch" ] || [ "$(TZ=Europe/Stockholm date +%H)" = "07" ]; then
+          today=$(TZ=Europe/Stockholm date +%F); hour=$(TZ=Europe/Stockholm date +%H)
+          built=$(curl -fsS "https://jsandvall123.github.io/dagsrapport/built.txt" 2>/dev/null || true)
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
             echo "run=true" >> "$GITHUB_OUTPUT"
+          elif [ "$hour" -lt 7 ]; then
+            echo "run=false" >> "$GITHUB_OUTPUT"; echo "Före 07 i Stockholm, väntar."
+          elif [ "$built" = "$today" ]; then
+            echo "run=false" >> "$GITHUB_OUTPUT"; echo "Dagens rapport finns redan."
           else
-            echo "run=false" >> "$GITHUB_OUTPUT"; echo "Inte 07 i Stockholm, hoppar över."
+            echo "run=true" >> "$GITHUB_OUTPUT"
           fi
 
       - uses: actions/checkout@v4
@@ -64,6 +70,7 @@ jobs:
             --template-placeholder "Lösenord" --template-button "Öppna" --template-remember "Kom ihåg mig" \
             --template-error "Fel lösenord" --template-color-primary "#1baf7a" --template-color-secondary "#f6f5f2"
           grep -q "staticrypt" site/index.html
+          TZ=Europe/Stockholm date +%F > site/built.txt
 
       - uses: actions/configure-pages@v5
         if: steps.gate.outputs.run == 'true'
