@@ -23,6 +23,7 @@ JUICY = "https://juicy.easyapps.cloud"
 STORES = [  # ordning i rapporten
     ("SE", "isella.se"), ("DK", "isella.dk"), ("NO", "isella.no"), ("FI", "isella.fi"),
     ("DE", "isellawear.de"), ("HOMELYST", "Homelyst"), ("HUSTOVALD", "Hus Tovald"),
+    ("JUNO", "Juno"),
 ]
 PREFIX = {"DK": "DK//ISELLA.DK//", "NO": "NO//ISELLA.NO//", "FI": "FI//ISELLA.FI//", "DE": "DE//ISELLAWEAR.DE//"}
 DAYS_SV = ["mån", "tis", "ons", "tor", "fre", "lör", "sön"]
@@ -37,6 +38,8 @@ def owner(name, created):
         return "HOMELYST"
     if "TOVALD" in u:
         return "HUSTOVALD"
+    if "JUNO" in u:
+        return "JUNO"
     for code, p in PREFIX.items():
         if name.startswith(p):
             return code

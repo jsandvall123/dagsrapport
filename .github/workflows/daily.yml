@@ -57,6 +57,7 @@ jobs:
           JUICY_DE_TOKEN: ${{ secrets.JUICY_DE_TOKEN }}
           JUICY_HOMELYST_TOKEN: ${{ secrets.JUICY_HOMELYST_TOKEN }}
           JUICY_HUSTOVALD_TOKEN: ${{ secrets.JUICY_HUSTOVALD_TOKEN }}
+          JUICY_JUNO_TOKEN: ${{ secrets.JUICY_JUNO_TOKEN }}
         run: python build.py
 
       - name: Lösenordsskydda sidan
