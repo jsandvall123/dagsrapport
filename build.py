@@ -109,7 +109,7 @@ def main():
     dry = "--dry" in args
     if "--env" in args:  # lokal körning: läs nycklarna ur .secrets-filen
         for line in open(args[args.index("--env") + 1], encoding="utf-8"):
-            if line.startswith("JUICY_") and "=" in line:
+            if line.startswith(("JUICY_", "META_")) and "=" in line:
                 k, v = line.strip().split("=", 1)
                 os.environ.setdefault(k, v)
     tokens = {c: os.environ[f"JUICY_{c}_TOKEN"] for c, _ in STORES if os.environ.get(f"JUICY_{c}_TOKEN")}
@@ -161,7 +161,18 @@ def main():
         except Exception as e:
             errors.append(f"{name}: {e}")
 
+    surf_data = None
+    os.makedirs(os.path.join(HERE, "state"), exist_ok=True)  # cache-steget i workflowen kräver mappen
+    if os.environ.get("META_BUDGET_TOKEN") and "HOMELYST" in tokens:
+        try:
+            sys.path.insert(0, HERE)
+            import surf
+            surf_data = surf.run(juicy, tokens["HOMELYST"], os.environ["META_BUDGET_TOKEN"].strip(), now)
+        except Exception as e:
+            errors.append(f"Surf-scaling (test): {e}")
+
     data = {
+        "surf": surf_data,
         "generated": now.strftime("%Y-%m-%d %H:%M"),
         "labels": [f"{DAYS_SV[d.weekday()]} {d.day}" for d in days],
         "periods": {p: {"from": a, "to": b, "label": span_label(days[a], days[b]) + (" (hittills)" if p == "Idag" else "")}

@@ -49,6 +49,7 @@ summary{cursor:pointer}.box{border-radius:8px;padding:10px 14px;font-size:13px;m
 <div class="lg"><span><i class="sq" style="background:rgba(136,135,128,.35)"></i><i class="ln" id="lgR"></i>Omsättning</span><span><i class="sq" style="background:rgba(42,120,214,.35)"></i><i class="ln" style="border-color:#2a78d6"></i>Annonskostnad</span><span><i class="sq" style="background:#1baf7a"></i><i class="ln" style="border-color:#1baf7a"></i>Vinst</span><span><i class="sq" style="background:#e34948"></i>Förlust</span></div>
 <div class="chart"><canvas id="ch" role="img" aria-label="Omsättning, annonskostnad och vinst per dag för vald butik och period"></canvas></div>
 
+<div id="surf"></div>
 <div id="daily"></div>
 <div id="split"></div>
 
@@ -94,6 +95,16 @@ if(!D[store])store='ALLA';if(!PER[per])per='Idag';
 const rng=x=>x.slice(PER[per].from,PER[per].to+1);
 const sum=x=>rng(x).reduce((q,w)=>q+w,0);
 const st=document.getElementById('st'),tb=document.getElementById('tb');
+function renderSurf(){
+  const el=document.getElementById('surf'),S=DATA.surf;
+  if(store!=='HOMELYST'||!S){el.innerHTML='';return}
+  const dec=a=>a==='höj +50 %'?'pos':a==='återställ'?'dim':'';
+  el.innerHTML=`<p class="sec">Surf-scaling · <b>TEST</b>, ändrar ingenting i Meta</p>
+  <div class="box warn">Höj +50 % kl 07, 10, 13, 16, 19 om ROAS ≥ <b>${S.limit!=null?S.limit.toFixed(2).replace('.',','):'–'}</b> (${String(S.margin).replace('.',',')} × break-even ${S.be!=null?S.be.toFixed(2).replace('.',','):'–'}) och spend ≥ ${S.minSpend} kr. Återställning 23:30. Kl 07 bedöms gårdagen. Nästa kontroll: <b>${esc(S.next)}</b>.</div>
+  <table><colgroup><col style="width:40%"><col class="hide-sm"><col><col><col></colgroup><thead><tr><th>Kampanj / annonsuppsättning</th><th class="hide-sm">Nivå</th><th>Original</th><th>Skulle vara nu</th><th>Höjningar</th></tr></thead><tbody>${S.ent.map(e=>`<tr><td title="${esc(e.name)}">${esc(e.name)}</td><td class="hide-sm dim">${esc(e.level)}</td><td>${f(e.base)}</td><td class="${e.steps?'pos':''}">${f(e.sim)}</td><td>${e.steps}</td></tr>`).join('')}</tbody></table>
+  <p class="sec">Beslut i dag</p>
+  <table><colgroup><col style="width:12%"><col style="width:38%"><col style="width:16%"><col></colgroup><thead><tr><th>Tid</th><th>Kampanj</th><th>Beslut</th><th>Varför</th></tr></thead><tbody>${S.log.length?S.log.slice().reverse().map(l=>`<tr><td>${esc(l.t)}</td><td title="${esc(l.name)}">${esc(l.name)}</td><td class="${dec(l.act)}">${esc(l.act)}</td><td class="dim" style="white-space:normal">${esc(l.why)}${l.basis?' · '+esc(l.basis):''}</td></tr>`).join(''):'<tr><td colspan="4" class="dim">Inga kontroller än i dag</td></tr>'}</tbody></table>`;
+}
 function render(){
   try{localStorage.setItem('store',store);localStorage.setItem('per',per)}catch(e){}
   [...st.children].forEach(b=>b.classList.toggle('on',b.dataset.k===store));[...tb.children].forEach(b=>b.classList.toggle('on',b.textContent===per));
@@ -106,6 +117,7 @@ function render(){
   document.getElementById('sumh').textContent='Sammanfattning · '+NAME[store]+' · '+PER[per].label;
   document.getElementById('sum').innerHTML=`<div class="k"><p class="kl">Vinst</p><p class="kv ${cls(pr)}">${sg(pr)}${f(pr)} kr</p><p class="ks">${pc(pr/r*100)} av oms.</p></div><div class="k"><p class="kl">Omsättning</p><p class="kv">${f(r)}</p></div><div class="k"><p class="kl">Annonskostnad</p><p class="kv">${f(sp)}</p></div><div class="k"><p class="kl">ROAS</p><p class="kv">${ro(r,sp)}</p></div>`;
   document.getElementById('split').innerHTML=store!=='ALLA'?'':'<p class="sec">Per butik · '+PER[per].label+'</p><table><colgroup><col style="width:28%"><col><col><col><col><col class="hide-sm"></colgroup><thead><tr><th>Butik</th><th>Oms.</th><th>Spend</th><th>ROAS</th><th>Vinst</th><th class="hide-sm">Vinst %</th></tr></thead><tbody>'+codes.map(c=>{const R=sum(D[c].R),S=sum(D[c].S),P=sum(D[c].P);return `<tr><td>${esc(NAME[c])}</td><td>${f(R)}</td><td>${f(S)}</td><td>${ro(R,S)}</td><td class="${cls(P)}">${sg(P)}${f(P)}</td><td class="${cls(P)} hide-sm">${pc(P/R*100)}</td></tr>`}).join('')+'</tbody></table>';
+  renderSurf();
   const rows=d.top[per]||[];
   document.getElementById('tbody').innerHTML=rows.map(x=>`<tr><td title="${esc(x[0])}">${esc(x[0])}</td><td>${f(x[1])}</td><td class="hide-sm">${sp?Math.round(x[1]/sp*100):0} %</td><td>${f(x[2])}</td><td>${ro(x[2],x[1])}</td><td class="${cls(x[3])}">${sg(x[3])}${f(x[3])}</td></tr>`).join('')+(rows.length?`<tr><td class="dim">Topp 5 av total</td><td colspan="5" class="dim">${sp?Math.round(rows.reduce((q,x)=>q+x[1],0)/sp*100):0} % av ${f(sp)} kr</td></tr>`:'<tr><td colspan="6" class="dim">Ingen annonsspend i perioden</td></tr>');
   document.getElementById('foot').textContent='DKK, NOK och EUR omräknade med Riksbankens dagskurs. Omsättning = nettoomsättning. Vinst per annons = Juicys bruttovinst minus spend (före transaktionsavgifter). Annonsnamn exakt som i Meta.';
