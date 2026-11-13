@@ -98,9 +98,9 @@ const st=document.getElementById('st'),tb=document.getElementById('tb');
 function renderSurf(){
   const el=document.getElementById('surf'),S=DATA.surf;
   if(store!=='HOMELYST'||!S){el.innerHTML='';return}
-  const dec=a=>a==='höj +50 %'?'pos':a==='återställ'?'dim':'';
+  const dec=a=>a.startsWith('höj')?'pos':a==='återställ'?'dim':'';
   el.innerHTML=`<p class="sec">Surf-scaling · <b>TEST</b>, ändrar ingenting i Meta</p>
-  <div class="box warn">Höj +50 % kl 07, 10, 13, 16, 19 om ROAS ≥ <b>${S.limit!=null?S.limit.toFixed(2).replace('.',','):'–'}</b> (${String(S.margin).replace('.',',')} × break-even ${S.be!=null?S.be.toFixed(2).replace('.',','):'–'}) och spend ≥ ${S.minSpend} kr. Återställning 23:30. Kl 07 bedöms gårdagen. Nästa kontroll: <b>${esc(S.next)}</b>.</div>
+  <div class="box warn">Höj +50 % (+25 % när budgeten är minst ${f(S.highFrom||25000)} kr) kl 07, 10, 13, 16, 19 om ROAS ≥ <b>${S.limit!=null?S.limit.toFixed(2).replace('.',','):'–'}</b> (${String(S.margin).replace('.',',')} × break-even ${S.be!=null?S.be.toFixed(2).replace('.',','):'–'}) och spend ≥ ${S.minSpend} kr. Återställning 23:30. Kl 07 bedöms gårdagen. Nästa kontroll: <b>${esc(S.next)}</b>.</div>
   <table><colgroup><col style="width:40%"><col class="hide-sm"><col><col><col></colgroup><thead><tr><th>Kampanj / annonsuppsättning</th><th class="hide-sm">Nivå</th><th>Original</th><th>Skulle vara nu</th><th>Höjningar</th></tr></thead><tbody>${S.ent.map(e=>`<tr><td title="${esc(e.name)}">${esc(e.name)}</td><td class="hide-sm dim">${esc(e.level)}</td><td>${f(e.base)}</td><td class="${e.steps?'pos':''}">${f(e.sim)}</td><td>${e.steps}</td></tr>`).join('')}</tbody></table>
   <p class="sec">Beslut i dag</p>
   <table><colgroup><col style="width:12%"><col style="width:38%"><col style="width:16%"><col></colgroup><thead><tr><th>Tid</th><th>Kampanj</th><th>Beslut</th><th>Varför</th></tr></thead><tbody>${S.log.length?S.log.slice().reverse().map(l=>`<tr><td>${esc(l.t)}</td><td title="${esc(l.name)}">${esc(l.name)}</td><td class="${dec(l.act)}">${esc(l.act)}</td><td class="dim" style="white-space:normal">${esc(l.why)}${l.basis?' · '+esc(l.basis):''}</td></tr>`).join(''):'<tr><td colspan="4" class="dim">Inga kontroller än i dag</td></tr>'}</tbody></table>`;

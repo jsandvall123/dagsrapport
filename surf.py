@@ -2,7 +2,7 @@
 
 Regler (Johns, 13 nov 2026):
 - Kontrollpunkter kl 07, 10, 13, 16, 19 (svensk tid). Kl 07 bedöms gårdagens ROAS, övriga dagens ROAS sedan midnatt.
-- Höj budgeten +50 % om ROAS (Juicy) >= 1,3 × break-even-ROAS och spend >= MIN_SPEND.
+- Höj budgeten +50 % (+25 % när budgeten redan är minst 25 000 kr) om ROAS (Juicy) >= 1,3 × break-even-ROAS och spend >= MIN_SPEND.
 - CBO: kampanjbudgeten. ABO: varje annonsuppsättnings budget.
 - Kl 23:30 återgår allt till budgeten som gällde innan dagens första höjning.
 - Alla aktiva kampanjer med HOMELYST i namnet.
@@ -22,6 +22,8 @@ NAME_MATCH = "HOMELYST"
 CHECKPOINTS = [7, 10, 13, 16, 19]
 RESET_AT = (23, 30)
 STEP = 1.5
+STEP_HIGH = 1.25  # försiktigare höjning när budgeten nått HIGH_FROM
+HIGH_FROM = 25000  # kr/dag
 MAX_STEPS = 5
 MIN_SPEND = 300  # kr spend i bedömningsperioden innan ett beslut tas
 MARGIN = 1.3  # gräns = MARGIN × break-even-ROAS
@@ -78,6 +80,7 @@ def run(juicy, juicy_token, meta_token, now):
     ents = entities(meta_token)
     for e in ents:  # originalbudget = budgeten första gången vi ser enheten i dag
         st = state["ent"].setdefault(e["id"], {"base": e["budget"], "steps": 0, "name": e["name"], "level": e["level"]})
+        st.setdefault("sim", round(e["budget"]))
         st["now_meta"] = e["budget"]
 
     def perf(day_from, day_to):
@@ -106,9 +109,10 @@ def run(juicy, juicy_token, meta_token, now):
             elif st["steps"] >= MAX_STEPS:
                 act, why = "håll", f"redan {MAX_STEPS} höjningar i dag"
             else:
-                act, why = "höj +50 %", f"ROAS {roas:.2f} ≥ {limit:.2f}"
+                f = STEP_HIGH if st["sim"] >= HIGH_FROM else STEP
+                act, why = f"höj +{round((f - 1) * 100)} %", f"ROAS {roas:.2f} ≥ {limit:.2f}"
                 st["steps"] += 1
-            st["sim"] = round(st["base"] * STEP ** st["steps"])
+                st["sim"] = round(st["sim"] * f)
             state["log"].append({"t": f"{cp:02d}:00", "id": e["id"], "name": e["name"], "act": act, "why": why,
                                  "spend": round(sp), "roas": round(roas, 2), "budget": st["sim"],
                                  "basis": "gårdagen" if cp == CHECKPOINTS[0] else "i dag"})
@@ -126,7 +130,7 @@ def run(juicy, juicy_token, meta_token, now):
 
     nxt = next((f"{c:02d}:00" for c in CHECKPOINTS if c not in state["done"]), "23:30 (återställning)" if not state["reset"] else "i morgon 07:00")
     return {
-        "test": True, "be": round(be, 2) if be else None, "limit": limit, "margin": MARGIN, "minSpend": MIN_SPEND,
+        "test": True, "highFrom": HIGH_FROM, "be": round(be, 2) if be else None, "limit": limit, "margin": MARGIN, "minSpend": MIN_SPEND,
         "next": nxt, "log": state["log"],
         "ent": [{"name": st["name"], "level": st["level"], "base": round(st["base"]), "steps": st["steps"],
                  "sim": st.get("sim", round(st["base"])), "meta": round(st.get("now_meta", st["base"]))}
