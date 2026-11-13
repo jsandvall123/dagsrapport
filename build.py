@@ -23,7 +23,7 @@ JUICY = "https://juicy.easyapps.cloud"
 STORES = [  # ordning i rapporten
     ("SE", "isella.se"), ("DK", "isella.dk"), ("NO", "isella.no"), ("FI", "isella.fi"),
     ("DE", "isellawear.de"), ("HOMELYST", "Homelyst"), ("HUSTOVALD", "Hus Tovald"),
-    ("JUNO", "Juno"),
+    ("JUNO", "Juno"), ("EARLO", "Earlo"),
 ]
 PREFIX = {"DK": "DK//ISELLA.DK//", "NO": "NO//ISELLA.NO//", "FI": "FI//ISELLA.FI//", "DE": "DE//ISELLAWEAR.DE//"}
 DAYS_SV = ["mån", "tis", "ons", "tor", "fre", "lör", "sön"]
@@ -40,6 +40,8 @@ def owner(name, created):
         return "HUSTOVALD"
     if "JUNO" in u:
         return "JUNO"
+    if "EARLO" in u:
+        return "EARLO"
     for code, p in PREFIX.items():
         if name.startswith(p):
             return code
@@ -95,6 +97,13 @@ def riksbank(series, start, end):
     raise RuntimeError(f"Riksbanken svarar inte ({series})")
 
 
+def span_label(a, b):
+    """'fre 13 nov' för en dag, '6–9 nov' / '28 okt–3 nov' för flera."""
+    if a == b:
+        return f"{DAYS_SV[a.weekday()]} {a.day} {MONTHS_SV[a.month-1]}"
+    return f"{a.day}{'' if a.month == b.month else ' ' + MONTHS_SV[a.month-1]}–{b.day} {MONTHS_SV[b.month-1]}"
+
+
 def main():
     args = sys.argv[1:]
     dry = "--dry" in args
@@ -107,10 +116,11 @@ def main():
     missing = [c for c, _ in STORES if c not in tokens]
 
     now = dt.datetime.now(ZoneInfo("Europe/Stockholm"))
-    end = now.date() - dt.timedelta(days=1)
-    days = [end - dt.timedelta(days=6 - i) for i in range(7)]
+    today = now.date()
+    end = today - dt.timedelta(days=1)  # sista hela dagen
+    days = [today - dt.timedelta(days=7 - i) for i in range(8)]  # index 0–6 = 7 hela dagar, 7 = idag (hittills)
     iso = [d.isoformat() for d in days]
-    periods = {"Igår": 6, "4 dagar": 3, "7 dagar": 0}
+    periods = {"Idag": (7, 7), "Igår": (6, 6), "4 dagar": (3, 6), "7 dagar": (0, 6)}
 
     errors = []
     try:
@@ -123,7 +133,7 @@ def main():
                        key=lambda x: x["date"])
 
     # växelkurser: senaste noteringen på eller före varje dag (helger = fredagens kurs)
-    rates = {"SEK": [1.0] * 7}
+    rates = {"SEK": [1.0] * len(days)}
     start = (days[0] - dt.timedelta(days=10)).isoformat()
     for cur, series in (("DKK", "SEKDKKPMI"), ("NOK", "SEKNOKPMI"), ("EUR", "SEKEURPMI")):
         obs = riksbank(series, start, iso[-1])
@@ -142,9 +152,9 @@ def main():
             byday = {g["dateFrom"]: g["data"] for g in pl["groups"]}
             row = lambda key: [round(byday.get(d, {}).get(key, 0) * r[i]) for i, d in enumerate(iso)]
             top = {}
-            for per, a in periods.items():
-                ads = juicy(tok, f"/api/stats/facebook/ads?dateFrom={iso[a]}&dateTo={iso[-1]}")["data"]
-                avg = sum(r[a:]) / len(r[a:])
+            for per, (a, b) in periods.items():
+                ads = juicy(tok, f"/api/stats/facebook/ads?dateFrom={iso[a]}&dateTo={iso[b]}")["data"]
+                avg = sum(r[a:b + 1]) / (b + 1 - a)
                 top[per] = [[x["name"], round(x["adSpend"] * avg), round(x["netRevenueV2"] * avg), round(x["profitAfterAdSpend"] * avg)]
                             for x in sorted(ads, key=lambda x: -x["adSpend"])[:5] if x["adSpend"] > 0]
             stores[code] = {"name": name, "cur": cur, "R": row("netRevenue"), "S": row("totalAdSpend"), "P": row("netProfit"), "top": top}
@@ -154,9 +164,8 @@ def main():
     data = {
         "generated": now.strftime("%Y-%m-%d %H:%M"),
         "labels": [f"{DAYS_SV[d.weekday()]} {d.day}" for d in days],
-        "periods": {p: {"from": a, "label": (f"{DAYS_SV[days[a].weekday()]} {days[a].day} {MONTHS_SV[days[a].month-1]}" if a == 6
-                                             else f"{days[a].day}{'' if days[a].month == end.month else ' ' + MONTHS_SV[days[a].month-1]}–{end.day} {MONTHS_SV[end.month-1]}")}
-                    for p, a in periods.items()},
+        "periods": {p: {"from": a, "to": b, "label": span_label(days[a], days[b]) + (" (hittills)" if p == "Idag" else "")}
+                    for p, (a, b) in periods.items()},
         "order": [c for c, _ in STORES if c in stores],
         "stores": stores,
         "sync": {"changes": changes, "new": new_camps},

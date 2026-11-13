@@ -49,6 +49,7 @@ summary{cursor:pointer}.box{border-radius:8px;padding:10px 14px;font-size:13px;m
 <div class="lg"><span><i class="sq" style="background:rgba(136,135,128,.35)"></i><i class="ln" id="lgR"></i>Omsättning</span><span><i class="sq" style="background:rgba(42,120,214,.35)"></i><i class="ln" style="border-color:#2a78d6"></i>Annonskostnad</span><span><i class="sq" style="background:#1baf7a"></i><i class="ln" style="border-color:#1baf7a"></i>Vinst</span><span><i class="sq" style="background:#e34948"></i>Förlust</span></div>
 <div class="chart"><canvas id="ch" role="img" aria-label="Omsättning, annonskostnad och vinst per dag för vald butik och period"></canvas></div>
 
+<div id="daily"></div>
 <div id="split"></div>
 
 <p class="sec">Topp 5 annonser efter spend</p>
@@ -66,11 +67,11 @@ D.ALLA={R:L.map((_,i)=>codes.reduce((a,c)=>a+D[c].R[i],0)),S:L.map((_,i)=>codes.
 Object.keys(PER).forEach(p=>D.ALLA.top[p]=codes.flatMap(c=>D[c].top[p]).sort((a,b)=>b[1]-a[1]).slice(0,5));
 
 const esc=s=>String(s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
-document.getElementById('meta').textContent='Uppdaterad '+DATA.generated+' · alla belopp i SEK från Juicy';
+document.getElementById('meta').textContent='Uppdaterad '+DATA.generated+' · uppdateras var 15:e minut · alla belopp i SEK från Juicy';
 let al='';
 if(DATA.errors.length)al+=`<div class="box bad"><b>Något gick fel i körningen</b><ul>${DATA.errors.map(e=>'<li>'+esc(e)+'</li>').join('')}</ul></div>`;
 if(DATA.missing.length)al+=`<div class="box warn">Saknar Juicy-nyckel: ${esc(DATA.missing.join(', '))}</div>`;
-if(DATA.sync.changes.length)al+=`<div class="box warn"><b>Kampanjkontrollen rättade ${DATA.sync.changes.length} kampanjer</b><ul>${DATA.sync.changes.map(c=>`<li>${esc(NAME[c.store]||c.store)}: ${esc(c.campaign)} → ${esc(c.action)}</li>`).join('')}</ul></div>`;
+if(DATA.sync.changes.length)al+=`<details class="box warn"><summary><b>Kampanjkontrollen rättade ${DATA.sync.changes.length} kampanjer</b> · se vilka</summary><ul>${DATA.sync.changes.map(c=>`<li>${esc(NAME[c.store]||c.store)}: ${esc(c.campaign)} → ${esc(c.action)}</li>`).join('')}</ul></details>`;
 if(DATA.sync.new.length)al+=`<details class="box warn"><summary><b>${DATA.sync.new.length} nya kampanjer</b> · kolla att butiken stämmer</summary><ul>${DATA.sync.new.map(c=>`<li>${esc(c.date)} · ${esc(c.name)} → ${esc(NAME[c.store]||c.store)}</li>`).join('')}</ul></details>`;
 document.getElementById('alerts').innerHTML=al;
 
@@ -78,7 +79,7 @@ const dark=matchMedia('(prefers-color-scheme: dark)').matches;
 const g=dark?'#2c2c2a':'#e1e0d9',mu='#898781',ring=dark?'#141413':'#ffffff',blk=dark?'#f0efec':'#0b0b0b',GR='#1baf7a',RD='#e34948';
 document.getElementById('lgR').style.borderColor=blk;
 const f=v=>(v<0?'−':'')+Math.abs(Math.round(v)).toLocaleString('sv-SE');
-const pc=v=>isFinite(v)?v.toFixed(1).replace('.',',')+' %':'–';
+const pc=v=>isFinite(v)?(v<0?'−':'')+Math.abs(v).toFixed(1).replace('.',',')+' %':'–';
 const ro=(r,s)=>s?(r/s).toFixed(2).replace('.',','):'–';
 const cls=v=>v<0?'neg':'pos',sg=v=>v>0?'+':'';
 const LINE=[blk,'#2a78d6',GR];
@@ -87,21 +88,24 @@ const br=(lab,c)=>({type:'bar',label:lab,data:[],backgroundColor:c,borderRadius:
 const chart=new Chart(document.getElementById('ch'),{data:{labels:[],datasets:[br('Omsättning','rgba(136,135,128,.35)'),br('Annonskostnad','rgba(42,120,214,.35)'),br('Vinst',GR)]},plugins:[topLines],
 options:{responsive:true,maintainAspectRatio:false,layout:{padding:{top:8}},interaction:{mode:'index',intersect:false},plugins:{legend:{display:false},tooltip:{callbacks:{label:c=>c.dataset.label+': '+f(c.raw)+' kr'}}},scales:{x:{grid:{display:false},ticks:{color:mu}},y:{beginAtZero:true,grid:{color:g},ticks:{color:mu,callback:v=>f(v)}}}}});
 
-let store='ALLA',per='7 dagar';
+let store='ALLA',per='Idag';
 try{store=localStorage.getItem('store')||store;per=localStorage.getItem('per')||per}catch(e){}
-if(!D[store])store='ALLA';if(!PER[per])per='7 dagar';
-const sum=(x,a)=>x.slice(a).reduce((q,w)=>q+w,0);
+if(!D[store])store='ALLA';if(!PER[per])per='Idag';
+const rng=x=>x.slice(PER[per].from,PER[per].to+1);
+const sum=x=>rng(x).reduce((q,w)=>q+w,0);
 const st=document.getElementById('st'),tb=document.getElementById('tb');
 function render(){
   try{localStorage.setItem('store',store);localStorage.setItem('per',per)}catch(e){}
   [...st.children].forEach(b=>b.classList.toggle('on',b.dataset.k===store));[...tb.children].forEach(b=>b.classList.toggle('on',b.textContent===per));
-  const d=D[store],a=PER[per].from,pp=d.P.slice(a);
-  chart.data.labels=L.slice(a);chart.data.datasets[0].data=d.R.slice(a);chart.data.datasets[1].data=d.S.slice(a);chart.data.datasets[2].data=pp;
-  chart.data.datasets[2].backgroundColor=pp.map(v=>v<0?RD:GR);chart.data.datasets.forEach(x=>x.maxBarThickness=a===6?48:22);chart.update();
-  const r=sum(d.R,a),sp=sum(d.S,a),pr=sum(d.P,a);
+  const d=D[store],one=PER[per].from===PER[per].to,pp=rng(d.P);
+  chart.data.labels=rng(L);chart.data.datasets[0].data=rng(d.R);chart.data.datasets[1].data=rng(d.S);chart.data.datasets[2].data=pp;
+  chart.data.datasets[2].backgroundColor=pp.map(v=>v<0?RD:GR);chart.data.datasets.forEach(x=>x.maxBarThickness=one?48:22);chart.update();
+  const r=sum(d.R),sp=sum(d.S),pr=sum(d.P);
+  const days=rng(L).map((l,i)=>({l,R:rng(d.R)[i],S:rng(d.S)[i],P:pp[i]})).reverse();
+  document.getElementById('daily').innerHTML=one?'':'<p class="sec">Vinst per dag · '+esc(NAME[store])+'</p><table><colgroup><col style="width:22%"><col><col><col><col><col class="hide-sm"></colgroup><thead><tr><th>Dag</th><th>Oms.</th><th>Spend</th><th>ROAS</th><th>Vinst</th><th class="hide-sm">Vinst %</th></tr></thead><tbody>'+days.map(x=>`<tr><td>${esc(x.l)}</td><td>${f(x.R)}</td><td>${f(x.S)}</td><td>${ro(x.R,x.S)}</td><td class="${cls(x.P)}">${sg(x.P)}${f(x.P)}</td><td class="${cls(x.P)} hide-sm">${pc(x.P/x.R*100)}</td></tr>`).join('')+`<tr><td><b>Totalt</b></td><td><b>${f(r)}</b></td><td><b>${f(sp)}</b></td><td><b>${ro(r,sp)}</b></td><td class="${cls(pr)}"><b>${sg(pr)}${f(pr)}</b></td><td class="${cls(pr)} hide-sm"><b>${pc(pr/r*100)}</b></td></tr></tbody></table>`;
   document.getElementById('sumh').textContent='Sammanfattning · '+NAME[store]+' · '+PER[per].label;
   document.getElementById('sum').innerHTML=`<div class="k"><p class="kl">Vinst</p><p class="kv ${cls(pr)}">${sg(pr)}${f(pr)} kr</p><p class="ks">${pc(pr/r*100)} av oms.</p></div><div class="k"><p class="kl">Omsättning</p><p class="kv">${f(r)}</p></div><div class="k"><p class="kl">Annonskostnad</p><p class="kv">${f(sp)}</p></div><div class="k"><p class="kl">ROAS</p><p class="kv">${ro(r,sp)}</p></div>`;
-  document.getElementById('split').innerHTML=store!=='ALLA'?'':'<p class="sec">Per butik · '+PER[per].label+'</p><table><colgroup><col style="width:28%"><col><col><col><col><col class="hide-sm"></colgroup><thead><tr><th>Butik</th><th>Oms.</th><th>Spend</th><th>ROAS</th><th>Vinst</th><th class="hide-sm">Vinst %</th></tr></thead><tbody>'+codes.map(c=>{const R=sum(D[c].R,a),S=sum(D[c].S,a),P=sum(D[c].P,a);return `<tr><td>${esc(NAME[c])}</td><td>${f(R)}</td><td>${f(S)}</td><td>${ro(R,S)}</td><td class="${cls(P)}">${sg(P)}${f(P)}</td><td class="${cls(P)} hide-sm">${pc(P/R*100)}</td></tr>`}).join('')+'</tbody></table>';
+  document.getElementById('split').innerHTML=store!=='ALLA'?'':'<p class="sec">Per butik · '+PER[per].label+'</p><table><colgroup><col style="width:28%"><col><col><col><col><col class="hide-sm"></colgroup><thead><tr><th>Butik</th><th>Oms.</th><th>Spend</th><th>ROAS</th><th>Vinst</th><th class="hide-sm">Vinst %</th></tr></thead><tbody>'+codes.map(c=>{const R=sum(D[c].R),S=sum(D[c].S),P=sum(D[c].P);return `<tr><td>${esc(NAME[c])}</td><td>${f(R)}</td><td>${f(S)}</td><td>${ro(R,S)}</td><td class="${cls(P)}">${sg(P)}${f(P)}</td><td class="${cls(P)} hide-sm">${pc(P/R*100)}</td></tr>`}).join('')+'</tbody></table>';
   const rows=d.top[per]||[];
   document.getElementById('tbody').innerHTML=rows.map(x=>`<tr><td title="${esc(x[0])}">${esc(x[0])}</td><td>${f(x[1])}</td><td class="hide-sm">${sp?Math.round(x[1]/sp*100):0} %</td><td>${f(x[2])}</td><td>${ro(x[2],x[1])}</td><td class="${cls(x[3])}">${sg(x[3])}${f(x[3])}</td></tr>`).join('')+(rows.length?`<tr><td class="dim">Topp 5 av total</td><td colspan="5" class="dim">${sp?Math.round(rows.reduce((q,x)=>q+x[1],0)/sp*100):0} % av ${f(sp)} kr</td></tr>`:'<tr><td colspan="6" class="dim">Ingen annonsspend i perioden</td></tr>');
   document.getElementById('foot').textContent='DKK, NOK och EUR omräknade med Riksbankens dagskurs. Omsättning = nettoomsättning. Vinst per annons = Juicys bruttovinst minus spend (före transaktionsavgifter). Annonsnamn exakt som i Meta.';

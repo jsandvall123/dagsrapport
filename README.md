@@ -1,6 +1,6 @@
 # Dagsrapport
 
-Varje morgon kl. 07.00 (svensk tid) bygger GitHub Actions en sida med annonskostnad, omsättning och vinst för alla butiker, med siffror från Juicy.
+Var 15:e minut bygger GitHub Actions en sida med annonskostnad, omsättning och vinst för alla butiker, med siffror från Juicy.
 
 ## Vad körningen gör
 1. **Kampanjkontroll.** Varje kampanj i det delade Meta-kontot ska bara räknas i rätt butik i Juicy. Regeln utgår från kampanjnamnet (`DK//ISELLA.DK//`, `HOMELYST`, `TOVALD` osv., se `owner()` i `build.py`). Fel rättas automatiskt och listas överst på sidan.
@@ -11,12 +11,12 @@ Varje morgon kl. 07.00 (svensk tid) bygger GitHub Actions en sida med annonskost
 Om något går fel skickar GitHub ett mejl, och felet syns i en röd ruta överst på sidan.
 
 ## Schemat
-GitHubs eget schema startade aldrig (11–12 nov 2026), så rapporten väcks av **cron-job.org** (Johns konto, jobb "Dagsrapport") varje dag kl. 07:00 Europe/Stockholm. Jobbet gör POST till
+GitHubs eget schema startade aldrig (11–12 nov 2026), så rapporten väcks av **cron-job.org** (Johns konto, jobb "Dagsrapport") var 15:e minut. Jobbet gör POST till
 `https://api.github.com/repos/jsandvall123/dagsrapport/actions/workflows/daily.yml/dispatches` med body `{"ref":"main"}` och en fine-grained GitHub-nyckel (`dagsrapport-trigger`, bara Actions read/write på detta repo). **Nyckeln går ut 12 nov 2027** och måste då förnyas och bytas i cron-job.org. GitHubs cron i workflowen ligger kvar som reserv.
 
 ## Nycklar
 Alla nycklar ligger som GitHub-secrets i repot, aldrig i koden:
-`JUICY_<BUTIK>_TOKEN` (SE, DK, NO, FI, DE, HOMELYST, HUSTOVALD), `DAGSRAPPORT_PASSWORD`, `DAGSRAPPORT_SALT`.
+`JUICY_<BUTIK>_TOKEN` (SE, DK, NO, FI, DE, HOMELYST, HUSTOVALD, JUNO, EARLO), `DAGSRAPPORT_PASSWORD`, `DAGSRAPPORT_SALT`.
 Lokalt finns samma värden i `../.secrets/shopify-stores.env`.
 
 ## Ny butik
