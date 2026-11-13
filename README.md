@@ -14,9 +14,12 @@ Om något går fel skickar GitHub ett mejl, och felet syns i en röd ruta övers
 GitHubs eget schema startade aldrig (11–12 nov 2026), så rapporten väcks av **cron-job.org** (Johns konto, jobb "Dagsrapport") var 15:e minut. Jobbet gör POST till
 `https://api.github.com/repos/jsandvall123/dagsrapport/actions/workflows/daily.yml/dispatches` med body `{"ref":"main"}` och en fine-grained GitHub-nyckel (`dagsrapport-trigger`, bara Actions read/write på detta repo). **Nyckeln går ut 12 nov 2027** och måste då förnyas och bytas i cron-job.org. GitHubs cron i workflowen ligger kvar som reserv.
 
+## Surf-scaling (Homelyst, testläge)
+`surf.py` räknar var 15:e minut ut vad surf-scaling skulle göra med Homelysts kampanjer och visar det på Homelyst-fliken. Det **ändrar ingenting i Meta**, skriptet använder bara Metas läs-API. Regler och gränser står överst i `surf.py`. State (dagens originalbudgetar och logg) ligger i GitHub Actions-cache, aldrig publikt.
+
 ## Nycklar
 Alla nycklar ligger som GitHub-secrets i repot, aldrig i koden:
-`JUICY_<BUTIK>_TOKEN` (SE, DK, NO, FI, DE, HOMELYST, HUSTOVALD, JUNO, EARLO), `DAGSRAPPORT_PASSWORD`, `DAGSRAPPORT_SALT`.
+`JUICY_<BUTIK>_TOKEN` (SE, DK, NO, FI, DE, HOMELYST, HUSTOVALD, JUNO, EARLO), `META_BUDGET_TOKEN` (system user dagsrapport-budget, ads_management + ads_read), `DAGSRAPPORT_PASSWORD`, `DAGSRAPPORT_SALT`.
 Lokalt finns samma värden i `../.secrets/shopify-stores.env`.
 
 ## Ny butik
