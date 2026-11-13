@@ -167,9 +167,11 @@ def main():
         try:
             sys.path.insert(0, HERE)
             import surf
-            surf_data = surf.run(juicy, tokens["HOMELYST"], os.environ["META_BUDGET_TOKEN"].strip(), now)
+            surf_data = surf.run(juicy, tokens["HOMELYST"], os.environ["META_BUDGET_TOKEN"].strip(), now,
+                                 live=os.environ.get("SURF_LIVE", "").strip().lower() == "true")
+            errors += [f"Surf-scaling: {x}" for x in surf_data.get("errors", [])]
         except Exception as e:
-            errors.append(f"Surf-scaling (test): {e}")
+            errors.append(f"Surf-scaling: {e}")
 
     data = {
         "surf": surf_data,

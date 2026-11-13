@@ -68,6 +68,7 @@ jobs:
           JUICY_JUNO_TOKEN: ${{ secrets.JUICY_JUNO_TOKEN }}
           JUICY_EARLO_TOKEN: ${{ secrets.JUICY_EARLO_TOKEN }}
           META_BUDGET_TOKEN: ${{ secrets.META_BUDGET_TOKEN }}
+          SURF_LIVE: ${{ vars.SURF_LIVE }}  # Settings → Secrets and variables → Actions → Variables. "true" = skarpt
         run: python build.py
 
       - name: Spara surf-scaling-state
