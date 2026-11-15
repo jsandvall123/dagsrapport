@@ -33,6 +33,13 @@ STEP_HIGH = 1.25  # försiktigare höjning när budgeten nått HIGH_FROM
 HIGH_FROM = 25000  # kr/dag
 STEP_DOWN = 0.75  # sänkning när senaste fönstret går under break-even
 MAX_MULT = 4  # aldrig över 4 × originalbudgeten
+# Lägre tak för enskilda kampanjer (del av kampanjnamnet → multipel). Johns beslut 15 nov 2026:
+# DK-äggkokaren bär nästan hela spenden på två annonser; 3x tills de nya annonserna (hl-dk_C03) är live.
+MAX_MULT_FOR = {"DK//HOMELYST//MICROWAVE EGG POACHER": 3}
+
+
+def max_mult(name):
+    return min([m for k, m in MAX_MULT_FOR.items() if k in (name or "")] + [MAX_MULT])
 MIN_SPEND = 300  # kr spend sedan 07 innan ett beslut tas
 MARGIN = 1.3  # gräns = MARGIN × break-even-ROAS
 COST_KEYS = ["cogs", "transactionFees", "shippingCosts", "thirdPartyLogisticsCosts", "orderCosts",
@@ -78,12 +85,12 @@ def entities(token, owner):
             continue
         if c.get("daily_budget"):
             out.append({"id": c["id"], "store": code, "level": "kampanj (CBO)", "name": c["name"],
-                        "budget": int(c["daily_budget"]) / 100, "match": ("campaignId", c["id"])})
+                        "budget": int(c["daily_budget"]) / 100, "match": ("campaignId", c["id"]), "camp": c["name"]})
         else:
             for a in c.get("adsets", {}).get("data", []):
                 if running(a) and a.get("daily_budget"):
                     out.append({"id": a["id"], "store": code, "level": "annonsuppsättning (ABO)", "name": a["name"],
-                                "budget": int(a["daily_budget"]) / 100, "match": ("adSetId", a["id"])})
+                                "budget": int(a["daily_budget"]) / 100, "match": ("adSetId", a["id"]), "camp": c["name"]})
     return out
 
 
@@ -139,6 +146,7 @@ def run(juicy, stores, meta_token, owner, now, live=False):
                 f"budgeten ändrad från {round(st['seen'])} till {round(e['budget'])} kr i Meta, fortsätter därifrån")
             st["cur"] = st["seen"] = e["budget"]
         st["meta"] = e["budget"]
+        st["camp"] = e["camp"]
 
     ads_cache = {}
 
@@ -203,7 +211,8 @@ def run(juicy, stores, meta_token, owner, now, live=False):
                 sp_sek, wsp_sek = sp * rate, wsp * rate
                 roas = rv / sp if sp > 0 else 0
                 wroas = wrv / wsp if wsp > 0 else 0
-                cap = st["base"] * MAX_MULT
+                mult = max_mult(st["camp"] if st.get("camp") else st["name"])
+                cap = st["base"] * mult
                 base = dict(spend=round(sp_sek), roas=round(roas, 2), wspend=round(wsp_sek), wroas=round(wroas, 2))
                 t = f"{cp:02d}:00"
                 since = snapd["t"]
@@ -239,7 +248,7 @@ def run(juicy, stores, meta_token, owner, now, live=False):
                         f"ROAS {roas:.2f} sedan {since} men {wtxt}, under gränsen {lim:.2f}", **base)
                     continue
                 if st["cur"] >= cap - 1:
-                    log(t, code, e["id"], e["name"], "håll", f"maxtaket {round(cap)} kr ({MAX_MULT} × original) nått", **base)
+                    log(t, code, e["id"], e["name"], "håll", f"maxtaket {round(cap)} kr ({mult} × original) nått", **base)
                     continue
                 f = STEP_HIGH if st["cur"] >= HIGH_FROM else STEP
                 new = min(round(st["cur"] * f), round(cap))
@@ -291,6 +300,6 @@ def run(juicy, stores, meta_token, owner, now, live=False):
     return {
         "test": not live, "highFrom": HIGH_FROM, "maxMult": MAX_MULT, "margin": MARGIN, "minSpend": MIN_SPEND,
         "next": nxt, "log": state["log"], "errors": errors, "stores": info,
-        "ent": [{"store": st["store"], "name": st["name"], "level": st["level"], "base": round(st["base"]), "steps": st["steps"], "downs": st.get("downs", 0),
+        "ent": [{"store": st["store"], "name": st["name"], "level": st["level"], "base": round(st["base"]), "steps": st["steps"], "downs": st.get("downs", 0), "mult": max_mult(st.get("camp") or st["name"]),
                  "sim": round(st["cur"]), "meta": round(st.get("meta", st["cur"]))} for st in state["ent"].values()],
     }
