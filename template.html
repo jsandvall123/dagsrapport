@@ -49,6 +49,7 @@ summary{cursor:pointer}.box{border-radius:8px;padding:10px 14px;font-size:13px;m
 <div class="lg"><span><i class="sq" style="background:rgba(136,135,128,.35)"></i><i class="ln" id="lgR"></i>Omsättning</span><span><i class="sq" style="background:rgba(42,120,214,.35)"></i><i class="ln" style="border-color:#2a78d6"></i>Annonskostnad</span><span><i class="sq" style="background:#1baf7a"></i><i class="ln" style="border-color:#1baf7a"></i>Vinst</span><span><i class="sq" style="background:#e34948"></i>Förlust</span></div>
 <div class="chart"><canvas id="ch" role="img" aria-label="Omsättning, annonskostnad och vinst per dag för vald butik och period"></canvas></div>
 
+<div id="prod"></div>
 <div id="surf"></div>
 <div id="daily"></div>
 <div id="split"></div>
@@ -95,6 +96,19 @@ if(!D[store])store='ALLA';if(!PER[per])per='Idag';
 const rng=x=>x.slice(PER[per].from,PER[per].to+1);
 const sum=x=>rng(x).reduce((q,w)=>q+w,0);
 const st=document.getElementById('st'),tb=document.getElementById('tb');
+function renderProd(){
+  const el=document.getElementById('prod'),P=D[store]&&D[store].products;
+  if(!P){el.innerHTML='';return}
+  const one=PER[per].from===PER[per].to;
+  const tot=lands=>{const t={R:0,S:0,P:0,d:rng(L).map(()=>0)};Object.values(lands).forEach(x=>{t.R+=sum(x.R);t.S+=sum(x.S);t.P+=sum(x.P);rng(x.P).forEach((v,i)=>t.d[i]+=v)});return t};
+  const prods=Object.entries(P).map(([n,l])=>[n,l,tot(l)]).filter(x=>x[2].S||x[2].R).sort((a,b)=>b[2].S-a[2].S);
+  const row=(name,t,sub)=>`<tr${sub?' class="dim"':''}><td style="${sub?'padding-left:18px':''}">${sub?esc(name):'<b>'+esc(name)+'</b>'}</td><td>${f(t.R)}</td><td>${f(t.S)}</td><td>${ro(t.R,t.S)}</td><td class="${cls(t.P)}">${sg(t.P)}${f(t.P)}</td></tr>`;
+  let h='<p class="sec">Per produkt · '+esc(PER[per].label)+'</p><table><colgroup><col style="width:34%"><col><col><col><col></colgroup><thead><tr><th>Produkt / land</th><th>Oms.</th><th>Spend</th><th>ROAS</th><th>Vinst</th></tr></thead><tbody>';
+  prods.forEach(([n,l,t])=>{h+=row(n,t,false);Object.entries(l).map(([k,x])=>[k,{R:sum(x.R),S:sum(x.S),P:sum(x.P)}]).filter(x=>x[1].S||x[1].R).sort((a,b)=>b[1].S-a[1].S).forEach(([k,x])=>h+=row(k,x,true))});
+  h+='</tbody></table><p class="dim" style="font-size:12px;margin:4px 0 0">Vinst efter annonskostnad per annons i Juicy. Summan blir inte exakt butikens vinst (fasta kostnader och köp utan annons räknas inte).</p>';
+  if(!one)h+='<p class="sec">Vinst per dag per produkt</p><table><thead><tr><th>Produkt</th>'+rng(L).map(l=>'<th>'+esc(l)+'</th>').join('')+'</tr></thead><tbody>'+prods.map(([n,l,t])=>'<tr><td>'+esc(n)+'</td>'+t.d.map(v=>`<td class="${cls(v)}">${sg(v)}${f(v)}</td>`).join('')+'</tr>').join('')+'</tbody></table>';
+  el.innerHTML=h;
+}
 function renderSurf(){
   const el=document.getElementById('surf'),S=DATA.surf,I=S&&S.stores&&S.stores[store];
   if(!I){el.innerHTML='';return}
@@ -118,8 +132,9 @@ function render(){
   document.getElementById('daily').innerHTML=one?'':'<p class="sec">Vinst per dag · '+esc(NAME[store])+'</p><table><colgroup><col style="width:22%"><col><col><col><col><col class="hide-sm"></colgroup><thead><tr><th>Dag</th><th>Oms.</th><th>Spend</th><th>ROAS</th><th>Vinst</th><th class="hide-sm">Vinst %</th></tr></thead><tbody>'+days.map(x=>`<tr><td>${esc(x.l)}</td><td>${f(x.R)}</td><td>${f(x.S)}</td><td>${ro(x.R,x.S)}</td><td class="${cls(x.P)}">${sg(x.P)}${f(x.P)}</td><td class="${cls(x.P)} hide-sm">${pc(x.P/x.R*100)}</td></tr>`).join('')+`<tr><td><b>Totalt</b></td><td><b>${f(r)}</b></td><td><b>${f(sp)}</b></td><td><b>${ro(r,sp)}</b></td><td class="${cls(pr)}"><b>${sg(pr)}${f(pr)}</b></td><td class="${cls(pr)} hide-sm"><b>${pc(pr/r*100)}</b></td></tr></tbody></table>`;
   document.getElementById('sumh').textContent='Sammanfattning · '+NAME[store]+' · '+PER[per].label;
   document.getElementById('sum').innerHTML=`<div class="k"><p class="kl">Vinst</p><p class="kv ${cls(pr)}">${sg(pr)}${f(pr)} kr</p><p class="ks">${pc(pr/r*100)} av oms.</p></div><div class="k"><p class="kl">Omsättning</p><p class="kv">${f(r)}</p></div><div class="k"><p class="kl">Annonskostnad</p><p class="kv">${f(sp)}</p></div><div class="k"><p class="kl">ROAS</p><p class="kv">${ro(r,sp)}</p></div>`;
-  document.getElementById('split').innerHTML=store!=='ALLA'?'':'<p class="sec">Per butik · '+PER[per].label+'</p><table><colgroup><col style="width:28%"><col><col><col><col><col class="hide-sm"></colgroup><thead><tr><th>Butik</th><th>Oms.</th><th>Spend</th><th>ROAS</th><th>Vinst</th><th class="hide-sm">Vinst %</th></tr></thead><tbody>'+codes.map(c=>{const R=sum(D[c].R),S=sum(D[c].S),P=sum(D[c].P);return `<tr><td>${esc(NAME[c])}</td><td>${f(R)}</td><td>${f(S)}</td><td>${ro(R,S)}</td><td class="${cls(P)}">${sg(P)}${f(P)}</td><td class="${cls(P)} hide-sm">${pc(P/R*100)}</td></tr>`}).join('')+'</tbody></table>';
-  renderSurf();
+  const cg=(R,C)=>R>0&&!C?'<span class="neg" title="Ingen COGS trots försäljning – kolla produktkostnaden i Juicy">0 ⚠</span>':`${f(C)} <span class="dim hide-sm">${R?pc(C/R*100):''}</span>`;
+  document.getElementById('split').innerHTML=store!=='ALLA'?'':'<p class="sec">Per butik · '+PER[per].label+'</p><table><colgroup><col style="width:22%"><col><col><col><col><col><col class="hide-sm"></colgroup><thead><tr><th>Butik</th><th>Oms.</th><th>Spend</th><th>COGS</th><th>ROAS</th><th>Vinst</th><th class="hide-sm">Vinst %</th></tr></thead><tbody>'+codes.map(c=>{const R=sum(D[c].R),S=sum(D[c].S),P=sum(D[c].P),C=D[c].C?sum(D[c].C):0;return `<tr><td>${esc(NAME[c])}</td><td>${f(R)}</td><td>${f(S)}</td><td>${cg(R,C)}</td><td>${ro(R,S)}</td><td class="${cls(P)}">${sg(P)}${f(P)}</td><td class="${cls(P)} hide-sm">${pc(P/R*100)}</td></tr>`}).join('')+'</tbody></table>';
+  renderProd();renderSurf();
   const rows=d.top[per]||[];
   document.getElementById('tbody').innerHTML=rows.map(x=>`<tr><td title="${esc(x[0])}">${esc(x[0])}</td><td>${f(x[1])}</td><td class="hide-sm">${sp?Math.round(x[1]/sp*100):0} %</td><td>${f(x[2])}</td><td>${ro(x[2],x[1])}</td><td class="${cls(x[3])}">${sg(x[3])}${f(x[3])}</td></tr>`).join('')+(rows.length?`<tr><td class="dim">Topp 5 av total</td><td colspan="5" class="dim">${sp?Math.round(rows.reduce((q,x)=>q+x[1],0)/sp*100):0} % av ${f(sp)} kr</td></tr>`:'<tr><td colspan="6" class="dim">Ingen annonsspend i perioden</td></tr>');
   document.getElementById('foot').textContent='DKK, NOK och EUR omräknade med Riksbankens dagskurs. Omsättning = nettoomsättning. Vinst per annons = Juicys bruttovinst minus spend (före transaktionsavgifter). Annonsnamn exakt som i Meta.';

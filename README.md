@@ -14,6 +14,9 @@ Om något går fel skickar GitHub ett mejl, och felet syns i en röd ruta övers
 GitHubs eget schema startade aldrig (11–12 nov 2026), så rapporten väcks av **cron-job.org** (Johns konto, jobb "Dagsrapport") var 15:e minut. Jobbet gör POST till
 `https://api.github.com/repos/jsandvall123/dagsrapport/actions/workflows/daily.yml/dispatches` med body `{"ref":"main"}` och en fine-grained GitHub-nyckel (`dagsrapport-trigger`, bara Actions read/write på detta repo). **Nyckeln går ut 12 nov 2027** och måste då förnyas och bytas i cron-job.org. GitHubs cron i workflowen ligger kvar som reserv.
 
+## Per produkt och COGS
+Butiker i `PRODUCT_STORES` (nu Homelyst) visas även per produkt och land. Produkten läses ur kampanjnamnet (`LAND//BUTIK//PRODUKT/datum`), vinsten är Juicys vinst efter annonskostnad per annons. Tabellen "Per butik" har en COGS-kolumn som blir röd om en butik har sålt utan COGS.
+
 ## Surf-scaling (Homelyst + Isella)
 `surf.py` sköter budgetarna för Homelyst (sedan 13 nov 2026) och Isella SE/DK/NO/FI/DE (sedan 15 nov 2026) enligt Johns regler (står överst i filen). Vilka kampanjer som hör till vilken butik avgörs av `owner()` i `build.py`, och listan över butiker ligger i `SURF_STORES`. Regeln: mätning från 07, höjning kl 09/12/15/18/21 om ROAS sedan 07 ≥ 1,3 × butikens egen break-even (senaste 7 dagarna), +50 % (+25 % från 25 000 kr), tak 4 × originalbudget, återställning 23:30. Sedan 15 nov krävs också att ROAS sedan förra kontrollen är över gränsen, och är den under break-even sänks budgeten −25 % (aldrig under originalet). Ändras en budget för hand fortsätter skriptet därifrån.
 

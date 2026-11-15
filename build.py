@@ -26,6 +26,7 @@ STORES = [  # ordning i rapporten
     ("JUNO", "Juno"), ("EARLO", "Earlo"),
 ]
 PREFIX = {"DK": "DK//ISELLA.DK//", "NO": "NO//ISELLA.NO//", "FI": "FI//ISELLA.FI//", "DE": "DE//ISELLAWEAR.DE//"}
+PRODUCT_STORES = ["HOMELYST"]  # butiker med flera produkter: visas även per produkt och land
 DAYS_SV = ["mån", "tis", "ons", "tor", "fre", "lör", "sön"]
 MONTHS_SV = ["jan", "feb", "mar", "apr", "maj", "jun", "jul", "aug", "sep", "okt", "nov", "dec"]
 HERE = os.path.dirname(os.path.abspath(__file__))
@@ -48,6 +49,16 @@ def owner(name, created):
     if created < "2025-10-09" or name.startswith("US//ISELLAWEAR"):
         return None
     return "SE"
+
+
+def product_of(campaign):
+    """'DK//HOMELYST//JELLYFISH LAMP/10.11' -> ('Jellyfish Lamp', 'DK'). Kampanjer utan produkt -> 'Flera produkter'."""
+    parts = [p for p in (campaign or "").split("//")]
+    land = parts[0] if len(parts) > 1 and len(parts[0]) == 2 else "?"
+    prod = parts[2].split("/")[0].strip() if len(parts) > 2 else ""
+    if not prod or prod.upper() in ("ALL PRODUCTS", "BLACK FRIDAY"):
+        prod = "Flera produkter"
+    return prod.title() if prod != "Flera produkter" else prod, land
 
 
 def http(url, token=None, data=None):
@@ -157,9 +168,33 @@ def main():
                 avg = sum(r[a:b + 1]) / (b + 1 - a)
                 top[per] = [[x["name"], round(x["adSpend"] * avg), round(x["netRevenueV2"] * avg), round(x["profitAfterAdSpend"] * avg)]
                             for x in sorted(ads, key=lambda x: -x["adSpend"])[:5] if x["adSpend"] > 0]
-            stores[code] = {"name": name, "cur": cur, "R": row("netRevenue"), "S": row("totalAdSpend"), "P": row("netProfit"), "top": top}
+            stores[code] = {"name": name, "cur": cur, "R": row("netRevenue"), "S": row("totalAdSpend"), "P": row("netProfit"), "C": row("cogs"), "top": top}
         except Exception as e:
             errors.append(f"{name}: {e}")
+
+    # per produkt och land (Juicys vinst efter annonskostnad per annons), en hämtning per dag
+    for code in PRODUCT_STORES:
+        if code not in stores:
+            continue
+        try:
+            r = rates[stores[code]["cur"]]
+            prods = {}
+            for i, d in enumerate(iso):
+                for x in juicy(tokens[code], f"/api/stats/facebook/ads?dateFrom={d}&dateTo={d}")["data"]:
+                    if not x["adSpend"] and not x["netRevenueV2"]:
+                        continue
+                    prod, land = product_of(x.get("campaignName"))
+                    row = prods.setdefault(prod, {}).setdefault(land, {"R": [0] * len(iso), "S": [0] * len(iso), "P": [0] * len(iso)})
+                    row["R"][i] += x["netRevenueV2"] * r[i]
+                    row["S"][i] += x["adSpend"] * r[i]
+                    row["P"][i] += x["profitAfterAdSpend"] * r[i]
+            for lands in prods.values():
+                for row in lands.values():
+                    for k in row:
+                        row[k] = [round(v) for v in row[k]]
+            stores[code]["products"] = prods
+        except Exception as e:
+            errors.append(f"{stores[code]['name']} per produkt: {e}")
 
     surf_data = None
     os.makedirs(os.path.join(HERE, "state"), exist_ok=True)  # cache-steget i workflowen kräver mappen
