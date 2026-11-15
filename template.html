@@ -33,6 +33,7 @@ summary{cursor:pointer}.box{border-radius:8px;padding:10px 14px;font-size:13px;m
 .box ul{margin:4px 0 0;padding-left:18px}
 .foot{font-size:12px;color:var(--muted);margin-top:10px}
 @media (max-width:600px){.kpis{grid-template-columns:repeat(2,minmax(0,1fr))}.chart{height:260px}.hide-sm{display:none}table{font-size:13px;table-layout:auto}td:first-child{max-width:130px}}
+button.kr{margin-left:6px;font:inherit;font-size:11px;line-height:1;padding:2px 5px;border:1px solid var(--border);border-radius:5px;background:transparent;color:var(--muted);cursor:pointer}button.kr:hover{color:var(--text);border-color:var(--strong)}
 th.sortable{cursor:pointer;user-select:none}th.sortable:hover{color:var(--text)}
 </style>
 </head>
@@ -97,7 +98,7 @@ if(!D[store])store='ALLA';if(!PER[per])per='Idag';
 const rng=x=>x.slice(PER[per].from,PER[per].to+1);
 const sum=x=>rng(x).reduce((q,w)=>q+w,0);
 const st=document.getElementById('st'),tb=document.getElementById('tb');
-document.addEventListener('click',ev=>{const h=ev.target.closest('#split th[data-sort]');if(!h)return;const k=h.dataset.sort;SS=SS.k===k?{k,d:-SS.d}:{k,d:1};try{localStorage.setItem('splitSort',JSON.stringify(SS))}catch(e){}render()});
+document.addEventListener('click',ev=>{const k0=ev.target.closest('#split button.kr');if(k0){const c=k0.parentNode;if(!c.dataset.p){c.dataset.p=c.innerHTML;c.innerHTML=`${k0.dataset.kr}<button class="kr" title="Visa i procent">%</button>`}else{c.innerHTML=c.dataset.p;delete c.dataset.p}return}const h=ev.target.closest('#split th[data-sort]');if(!h)return;const k=h.dataset.sort;SS=SS.k===k?{k,d:-SS.d}:{k,d:1};try{localStorage.setItem('splitSort',JSON.stringify(SS))}catch(e){}render()});
 function renderProd(){
   const el=document.getElementById('prod'),P=D[store]&&D[store].products;
   if(!P){el.innerHTML='';return}
@@ -134,12 +135,12 @@ function render(){
   document.getElementById('daily').innerHTML=one?'':'<p class="sec">Vinst per dag · '+esc(NAME[store])+'</p><table><colgroup><col style="width:22%"><col><col><col><col><col class="hide-sm"></colgroup><thead><tr><th>Dag</th><th>Oms.</th><th>Spend</th><th>ROAS</th><th>Vinst</th><th class="hide-sm">Vinst %</th></tr></thead><tbody>'+days.map(x=>`<tr><td>${esc(x.l)}</td><td>${f(x.R)}</td><td>${f(x.S)}</td><td>${ro(x.R,x.S)}</td><td class="${cls(x.P)}">${sg(x.P)}${f(x.P)}</td><td class="${cls(x.P)} hide-sm">${pc(x.P/x.R*100)}</td></tr>`).join('')+`<tr><td><b>Totalt</b></td><td><b>${f(r)}</b></td><td><b>${f(sp)}</b></td><td><b>${ro(r,sp)}</b></td><td class="${cls(pr)}"><b>${sg(pr)}${f(pr)}</b></td><td class="${cls(pr)} hide-sm"><b>${pc(pr/r*100)}</b></td></tr></tbody></table>`;
   document.getElementById('sumh').textContent='Sammanfattning · '+NAME[store]+' · '+PER[per].label;
   document.getElementById('sum').innerHTML=`<div class="k"><p class="kl">Vinst</p><p class="kv ${cls(pr)}">${sg(pr)}${f(pr)} kr</p><p class="ks">${pc(pr/r*100)} av oms.</p></div><div class="k"><p class="kl">Omsättning</p><p class="kv">${f(r)}</p></div><div class="k"><p class="kl">Annonskostnad</p><p class="kv">${f(sp)}</p></div><div class="k"><p class="kl">ROAS</p><p class="kv">${ro(r,sp)}</p></div>`;
-  const cg=(R,C)=>R>0&&!C?'<span class="neg" title="Ingen COGS trots försäljning – kolla produktkostnaden i Juicy">0 ⚠</span>':`${f(C)} <span class="dim hide-sm">${R?pc(C/R*100):''}</span>`;
+  const cg=(R,C)=>R>0&&!C?'<span class="neg" title="Ingen COGS trots försäljning – kolla produktkostnaden i Juicy">0 ⚠</span>':R?`${pc(C/R*100)}<button class="kr" data-kr="${f(C)} kr" title="Visa i kronor">kr</button>`:'–';
   if(store!=='ALLA'){document.getElementById('split').innerHTML='';}else{
-  const rows=codes.map(c=>{const R=sum(D[c].R),S=sum(D[c].S),P=sum(D[c].P),C=D[c].C?sum(D[c].C):0;return {c,R,S,C,P,ro:S?R/S:-1,pp:R?P/R:-1e9}});
+  const rows=codes.map(c=>{const R=sum(D[c].R),S=sum(D[c].S),P=sum(D[c].P),C=D[c].C?sum(D[c].C):0;return {c,R,S,C,P,cp:R?C/R:-1,ro:S?R/S:-1,pp:R?P/R:-1e9}});
   rows.sort((a,b)=>(b[SS.k]-a[SS.k])*SS.d||b.P-a.P);
   const th=(k,t,x)=>`<th data-sort="${k}" class="sortable${x?' '+x:''}" title="Sortera">${t}${SS.k===k?(SS.d>0?' ↓':' ↑'):''}</th>`;
-  document.getElementById('split').innerHTML='<p class="sec">Per butik · '+PER[per].label+'</p><table><colgroup><col style="width:22%"><col><col><col><col><col><col class="hide-sm"></colgroup><thead><tr><th>Butik</th>'+th('R','Oms.')+th('S','Spend')+th('C','COGS')+th('ro','ROAS')+th('P','Vinst')+th('pp','Vinst %','hide-sm')+'</tr></thead><tbody>'+rows.map(({c,R,S,C,P})=>`<tr><td>${esc(NAME[c])}</td><td>${f(R)}</td><td>${f(S)}</td><td>${cg(R,C)}</td><td>${ro(R,S)}</td><td class="${cls(P)}">${sg(P)}${f(P)}</td><td class="${cls(P)} hide-sm">${pc(P/R*100)}</td></tr>`).join('')+'</tbody></table><p class="dim" style="font-size:12px;margin:4px 0 0">Klicka på en rubrik för att sortera, klicka igen för att vända.</p>';}
+  document.getElementById('split').innerHTML='<p class="sec">Per butik · '+PER[per].label+'</p><table><colgroup><col style="width:22%"><col><col><col><col><col><col class="hide-sm"></colgroup><thead><tr><th>Butik</th>'+th('R','Oms.')+th('S','Spend')+th('cp','COGS')+th('ro','ROAS')+th('P','Vinst')+th('pp','Vinst %','hide-sm')+'</tr></thead><tbody>'+rows.map(({c,R,S,C,P})=>`<tr><td>${esc(NAME[c])}</td><td>${f(R)}</td><td>${f(S)}</td><td>${cg(R,C)}</td><td>${ro(R,S)}</td><td class="${cls(P)}">${sg(P)}${f(P)}</td><td class="${cls(P)} hide-sm">${pc(P/R*100)}</td></tr>`).join('')+'</tbody></table><p class="dim" style="font-size:12px;margin:4px 0 0">Klicka på en rubrik för att sortera, klicka igen för att vända.</p>';}
   renderProd();renderSurf();
   const rows=d.top[per]||[];
   document.getElementById('tbody').innerHTML=rows.map(x=>`<tr><td title="${esc(x[0])}">${esc(x[0])}</td><td>${f(x[1])}</td><td class="hide-sm">${sp?Math.round(x[1]/sp*100):0} %</td><td>${f(x[2])}</td><td>${ro(x[2],x[1])}</td><td class="${cls(x[3])}">${sg(x[3])}${f(x[3])}</td></tr>`).join('')+(rows.length?`<tr><td class="dim">Topp 5 av total</td><td colspan="5" class="dim">${sp?Math.round(rows.reduce((q,x)=>q+x[1],0)/sp*100):0} % av ${f(sp)} kr</td></tr>`:'<tr><td colspan="6" class="dim">Ingen annonsspend i perioden</td></tr>');
