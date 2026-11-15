@@ -15,6 +15,7 @@ h1{font-size:20px;font-weight:600;margin:0}
 .meta{font-size:13px;color:var(--muted);margin:2px 0 16px}
 .row{display:flex;flex-wrap:wrap;gap:6px;margin:0 0 10px}
 .row button{font:inherit;font-size:14px;padding:7px 14px;border-radius:8px;border:1px solid var(--border);background:transparent;color:var(--text);cursor:pointer}
+.row.idle{align-items:center;margin-top:-4px}.row.idle button{font-size:13px;padding:5px 11px;color:var(--muted)}.row.idle button.on{color:var(--text)}.idl{font-size:12px;color:var(--muted);margin-right:2px}
 .row button.on{background:var(--surface);border-color:var(--strong);font-weight:600}
 .sec{font-size:13px;color:var(--text2);margin:28px 0 8px}
 .kpis{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:8px}
@@ -43,6 +44,7 @@ th.sortable{cursor:pointer;user-select:none}th.sortable:hover{color:var(--text)}
 <p class="meta" id="meta"></p>
 <div id="alerts"></div>
 <div class="row" id="st"></div>
+<div class="row idle" id="st2"></div>
 <div class="row" id="tb"></div>
 
 <p class="sec" id="sumh">Sammanfattning</p>
@@ -126,7 +128,7 @@ function renderSurf(){
 }
 function render(){
   try{localStorage.setItem('store',store);localStorage.setItem('per',per)}catch(e){}
-  [...st.children].forEach(b=>b.classList.toggle('on',b.dataset.k===store));[...tb.children].forEach(b=>b.classList.toggle('on',b.textContent===per));
+  [...st.children,...st2.children].forEach(b=>b.classList.toggle('on',b.dataset.k===store));[...tb.children].forEach(b=>b.classList.toggle('on',b.textContent===per));
   const d=D[store],one=PER[per].from===PER[per].to,pp=rng(d.P);
   chart.data.labels=rng(L);chart.data.datasets[0].data=rng(d.R);chart.data.datasets[1].data=rng(d.S);chart.data.datasets[2].data=pp;
   chart.data.datasets[2].backgroundColor=pp.map(v=>v<0?RD:GR);chart.data.datasets.forEach(x=>x.maxBarThickness=one?48:22);chart.update();
@@ -146,7 +148,12 @@ function render(){
   document.getElementById('tbody').innerHTML=rows.map(x=>`<tr><td title="${esc(x[0])}">${esc(x[0])}</td><td>${f(x[1])}</td><td class="hide-sm">${sp?Math.round(x[1]/sp*100):0} %</td><td>${f(x[2])}</td><td>${ro(x[2],x[1])}</td><td class="${cls(x[3])}">${sg(x[3])}${f(x[3])}</td></tr>`).join('')+(rows.length?`<tr><td class="dim">Topp 5 av total</td><td colspan="5" class="dim">${sp?Math.round(rows.reduce((q,x)=>q+x[1],0)/sp*100):0} % av ${f(sp)} kr</td></tr>`:'<tr><td colspan="6" class="dim">Ingen annonsspend i perioden</td></tr>');
   document.getElementById('foot').textContent='DKK, NOK och EUR omräknade med Riksbankens dagskurs. Omsättning = nettoomsättning. Vinst per annons = Juicys bruttovinst minus spend (före transaktionsavgifter). Annonsnamn exakt som i Meta.';
 }
-['ALLA',...codes].forEach(k=>{const b=document.createElement('button');b.textContent=NAME[k];b.dataset.k=k;b.onclick=()=>{store=k;render()};st.appendChild(b)});
+// aktiv = spend i dag eller i går; övriga i en dämpad rad under
+const st2=document.getElementById('st2'),active=c=>D[c].S[6]>0||D[c].S[7]>0;
+const btn=(k,el)=>{const b=document.createElement('button');b.textContent=NAME[k];b.dataset.k=k;b.onclick=()=>{store=k;render()};el.appendChild(b)};
+['ALLA',...codes.filter(active)].forEach(k=>btn(k,st));
+const idle=codes.filter(c=>!active(c));
+if(idle.length){const l=document.createElement('span');l.className='idl';l.textContent='Ingen spend i dag/i går:';st2.appendChild(l);idle.forEach(k=>btn(k,st2))}
 Object.keys(PER).forEach(k=>{const b=document.createElement('button');b.textContent=k;b.onclick=()=>{per=k;render()};tb.appendChild(b)});
 render();
 </script>
