@@ -102,6 +102,15 @@ jobs:
       - name: Publicera
         id: deploy
         if: steps.gate.outputs.run == 'true'
+        continue-on-error: true  # GitHub Pages hickar ibland ("Fetching artifact metadata failed"), då försöker vi igen
+        uses: actions/deploy-pages@v4
+
+      - name: Vänta innan nytt försök
+        if: steps.gate.outputs.run == 'true' && steps.deploy.outcome == 'failure'
+        run: sleep 45
+
+      - name: Publicera (försök 2)
+        if: steps.gate.outputs.run == 'true' && steps.deploy.outcome == 'failure'
         uses: actions/deploy-pages@v4
 
       - name: Larma om något gick fel (GitHub mejlar då)
