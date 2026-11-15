@@ -1,11 +1,11 @@
-"""Surf-scaling för Homelyst.
+"""Surf-scaling för Homelyst (sedan 13 nov 2026) och Isella SE/DK/NO/FI/DE (sedan 15 nov 2026).
 
-Regler (John, 13 nov 2026):
+Regler (John, 13 nov 2026, samma för alla butiker):
 - Kl 07 sparas en ögonblicksbild av dagens spend/omsättning per kampanj. Ingen höjning.
 - Kontrollpunkter kl 09, 12, 15, 18, 21: ROAS mäts från kl 07 till nu (Juicy).
-- Höj +50 % (+25 % när budgeten redan är minst 25 000 kr) om ROAS >= 1,3 × break-even-ROAS
+- Höj +50 % (+25 % när budgeten redan är minst 25 000 kr) om ROAS >= 1,3 × butikens egen break-even-ROAS
   och spend sedan 07 >= MIN_SPEND. Aldrig över 4 × dagens originalbudget.
-- CBO: kampanjbudgeten. ABO: varje annonsuppsättnings budget. Alla aktiva kampanjer med HOMELYST i namnet.
+- CBO: kampanjbudgeten. ABO: varje annonsuppsättnings budget. Alla aktiva kampanjer som owner() ger en butik i SURF_STORES.
 - Ändrar John budgeten själv under dagen fortsätter skriptet från hans nya budget.
 - Kl 23:30 återställs allt till budgeten som gällde när dagen började (originalbudgeten).
 
@@ -21,7 +21,7 @@ import urllib.request
 
 GRAPH = "https://graph.facebook.com/v21.0"
 AD_ACCOUNT = "act_3037939703006283"
-NAME_MATCH = "HOMELYST"
+SURF_STORES = ["HOMELYST", "SE", "DK", "NO", "FI", "DE"]  # butikskoder från owner() i build.py
 SNAPSHOT_AT = 7
 CHECKPOINTS = [9, 12, 15, 18, 21]
 RESET_AT = (23, 30)
@@ -61,115 +61,164 @@ def running(o):
     return o.get("status") == "ACTIVE" and o.get("effective_status") in ("ACTIVE", "IN_PROCESS", "WITH_ISSUES")
 
 
-def entities(token):
-    """Aktiva Homelyst-kampanjer: CBO → kampanjen, ABO → varje aktiv annonsuppsättning."""
-    d = meta(f"{AD_ACCOUNT}/campaigns", token, limit=200,
-             fields="name,status,effective_status,daily_budget,adsets.limit(100){name,status,effective_status,daily_budget}",
-             filtering=json.dumps([{"field": "name", "operator": "CONTAIN", "value": NAME_MATCH}]))
+def entities(token, owner):
+    """Aktiva kampanjer i surf-butikerna: CBO → kampanjen, ABO → varje aktiv annonsuppsättning.
+    owner(namn, skapad) -> butikskod (samma regel som kampanjkontrollen i build.py)."""
+    d = meta(f"{AD_ACCOUNT}/campaigns", token, limit=300,
+             fields="name,status,effective_status,daily_budget,created_time,adsets.limit(100){name,status,effective_status,daily_budget}",
+             filtering=json.dumps([{"field": "effective_status", "operator": "IN", "value": ["ACTIVE", "IN_PROCESS", "WITH_ISSUES"]}]))
     out = []
     for c in d.get("data", []):
-        if not running(c):
+        code = owner(c["name"], c.get("created_time", "")[:10])
+        if code not in SURF_STORES or not running(c):
             continue
         if c.get("daily_budget"):
-            out.append({"id": c["id"], "level": "kampanj (CBO)", "name": c["name"],
+            out.append({"id": c["id"], "store": code, "level": "kampanj (CBO)", "name": c["name"],
                         "budget": int(c["daily_budget"]) / 100, "match": ("campaignId", c["id"])})
         else:
             for a in c.get("adsets", {}).get("data", []):
                 if running(a) and a.get("daily_budget"):
-                    out.append({"id": a["id"], "level": "annonsuppsättning (ABO)", "name": a["name"],
+                    out.append({"id": a["id"], "store": code, "level": "annonsuppsättning (ABO)", "name": a["name"],
                                 "budget": int(a["daily_budget"]) / 100, "match": ("adSetId", a["id"])})
     return out
 
 
-def run(juicy, juicy_token, meta_token, now, live=False):
-    """juicy(token, path) -> json. Returnerar data för rapporten. Fel i enskilda skrivningar samlas i 'errors'."""
+def break_even(juicy, token, now):
+    """Break-even-ROAS från Juicy, senaste 7 hela dagarna (butikens egna marginaler)."""
+    q = urllib.parse.urlencode({"dateFrom": (now.date() - dt.timedelta(days=7)).isoformat(),
+                                "dateTo": (now.date() - dt.timedelta(days=1)).isoformat(), "groupBy": "DAILY"})
+    s = juicy(token, "/api/stats/shop/profitloss?" + q)["summary"]
+    costs = sum(s.get(k) or 0 for k in COST_KEYS) - (s.get("restockedCogs") or 0)
+    return s["netRevenue"] / (s["netRevenue"] - costs) if s["netRevenue"] > costs else None
+
+
+def run(juicy, stores, meta_token, owner, now, live=False):
+    """juicy(token, path) -> json. stores = {kod: {"token": juicy-token, "rate": lokal valuta → SEK}}.
+    Budgetar i Meta är i SEK (annonskontots valuta). ROAS räknas i butikens egen valuta i Juicy,
+    spend-golvet räknas om till SEK. Returnerar data för rapporten; fel samlas i 'errors'."""
     today = now.date().isoformat()
+    hhmm = now.strftime("%H:%M")
     errors = []
     try:
         state = json.load(open(STATE))
     except Exception:
         state = {}
-    if state.get("date") != today or state.get("v") != 2:
-        state = {"v": 2, "date": today, "snap": None, "done": [], "reset": False, "ent": {}, "log": []}
+    if state.get("date") == today and state.get("v") == 2:  # gårdagens format (bara Homelyst) → v3
+        for st in state["ent"].values():
+            st["store"] = "HOMELYST"
+        state = {"v": 3, "date": today, "done": state["done"], "reset": state["reset"], "ent": state["ent"],
+                 "snap": {"HOMELYST": state["snap"]} if state["snap"] else {},
+                 "log": [{**l, "store": "HOMELYST"} for l in state["log"]]}
+    if state.get("date") != today or state.get("v") != 3:
+        state = {"v": 3, "date": today, "snap": {}, "done": [], "reset": False, "ent": {}, "log": []}
 
-    def log(t, e_id, name, act, why, **kw):
-        state["log"].append({"t": t, "id": e_id, "name": name, "act": act, "why": why, **kw})
+    def log(t, store, e_id, name, act, why, **kw):
+        state["log"].append({"t": t, "store": store, "id": e_id, "name": name, "act": act, "why": why, **kw})
 
-    # break-even-ROAS från Juicy, senaste 7 hela dagarna
-    q = urllib.parse.urlencode({"dateFrom": (now.date() - dt.timedelta(days=7)).isoformat(),
-                                "dateTo": (now.date() - dt.timedelta(days=1)).isoformat(), "groupBy": "DAILY"})
-    s = juicy(juicy_token, "/api/stats/shop/profitloss?" + q)["summary"]
-    costs = sum(s.get(k) or 0 for k in COST_KEYS) - (s.get("restockedCogs") or 0)
-    be = s["netRevenue"] / (s["netRevenue"] - costs) if s["netRevenue"] > costs else None
-    limit = round(be * MARGIN, 2) if be else None
+    info = {}
+    for code, s in stores.items():
+        try:
+            be = break_even(juicy, s["token"], now)
+        except Exception as ex:
+            errors.append(f"{code}: break-even kunde inte hämtas: {ex}")
+            be = None
+        info[code] = {"be": round(be, 2) if be else None, "limit": round(be * MARGIN, 2) if be else None}
 
-    ents = entities(meta_token)
-    hhmm = now.strftime("%H:%M")
+    ents = [e for e in entities(meta_token, owner) if e["store"] in stores]
     for e in ents:
         st = state["ent"].get(e["id"])
         if st is None:  # första gången i dag: originalbudget = nuvarande budget
             st = state["ent"][e["id"]] = {"base": e["budget"], "cur": e["budget"], "seen": e["budget"], "steps": 0,
-                                          "name": e["name"], "level": e["level"]}
+                                          "name": e["name"], "level": e["level"], "store": e["store"]}
         elif abs(e["budget"] - st["seen"]) >= 1:  # budgeten ändrad i Meta av någon annan än skriptet
-            log(hhmm, e["id"], e["name"], "manuell ändring",
+            log(hhmm, e["store"], e["id"], e["name"], "manuell ändring",
                 f"budgeten ändrad från {round(st['seen'])} till {round(e['budget'])} kr i Meta, fortsätter därifrån")
             st["cur"] = st["seen"] = e["budget"]
         st["meta"] = e["budget"]
 
-    def cumulative():
-        ads = juicy(juicy_token, f"/api/stats/facebook/ads?dateFrom={today}&dateTo={today}")["data"]
+    ads_cache = {}
+
+    def cumulative(code):
+        if code not in ads_cache:
+            ads_cache[code] = juicy(stores[code]["token"], f"/api/stats/facebook/ads?dateFrom={today}&dateTo={today}")["data"]
+        ads = ads_cache[code]
         res = {}
         for e in ents:
+            if e["store"] != code:
+                continue
             k, v = e["match"]
             res[e["id"]] = [sum(a["adSpend"] for a in ads if a.get(k) == v),
                             sum(a["netRevenueV2"] for a in ads if a.get(k) == v)]
         return res
 
-    # ögonblicksbild kl 07
-    if now.hour >= SNAPSHOT_AT and state["snap"] is None:
-        state["snap"] = {"t": hhmm, "v": cumulative()}
-        skipped = [c for c in CHECKPOINTS if now.hour >= c]  # startade sent: mät från nu, inga beslut på tomt fönster
-        state["done"] += skipped
-        log(hhmm, "", "Alla Homelyst-kampanjer", "mätning startar",
-            f"ROAS mäts från {hhmm}" + (f", kontroll {', '.join(f'{c:02d}' for c in skipped)} hoppas över" if skipped else ""))
+    # ögonblicksbild kl 07, per butik. Startar en butik sent mäts den från då, och kontroller
+    # närmare än en timme efter starten hoppas över (inga beslut på ett för kort fönster).
+    if now.hour >= SNAPSHOT_AT:
+        for code in stores:
+            if code in state["snap"]:
+                continue
+            try:
+                state["snap"][code] = {"t": hhmm, "v": cumulative(code)}
+            except Exception as ex:
+                errors.append(f"{code}: ögonblicksbild misslyckades: {ex}")
+                continue
+            late = now.hour > SNAPSHOT_AT or now.minute > 30
+            skipped = [c for c in CHECKPOINTS if late and c * 60 < now.hour * 60 + now.minute + 60]
+            state["snap"][code]["skip"] = skipped
+            log(hhmm, code, "", "Alla kampanjer", "mätning startar",
+                f"ROAS mäts från {hhmm}" + (f", kontroll {', '.join(f'{c:02d}' for c in skipped)} hoppas över" if skipped else ""))
 
     due = [c for c in CHECKPOINTS if now.hour >= c and c not in state["done"]]
-    if due and limit and not state["reset"]:
+    if due and not state["reset"]:
         cp = max(due)
         state["done"] += due
-        cum = cumulative()
-        snap = (state["snap"] or {}).get("v", {})
-        for e in ents:
-            st = state["ent"][e["id"]]
-            s0 = snap.get(e["id"], [0, 0])
-            sp, rv = cum[e["id"]][0] - s0[0], cum[e["id"]][1] - s0[1]
-            roas = rv / sp if sp > 0 else 0
-            cap = st["base"] * MAX_MULT
-            base = dict(spend=round(sp), roas=round(roas, 2))
-            if sp < MIN_SPEND:
-                log(f"{cp:02d}:00", e["id"], e["name"], "håll", f"för lite data ({round(sp)} kr spend sedan 07)", **base)
+        for code in stores:
+            snapd = state["snap"].get(code)
+            lim = info[code]["limit"]
+            if not snapd or cp in snapd.get("skip", []) or not lim:
                 continue
-            if roas < limit:
-                log(f"{cp:02d}:00", e["id"], e["name"], "håll", f"ROAS {roas:.2f} under gränsen {limit:.2f}", **base)
+            try:
+                cum = cumulative(code)
+            except Exception as ex:
+                errors.append(f"{code}: Juicy svarade inte vid kontrollen {cp:02d}: {ex}")
                 continue
-            if st["cur"] >= cap - 1:
-                log(f"{cp:02d}:00", e["id"], e["name"], "håll", f"maxtaket {round(cap)} kr (4 × original) nått", **base)
-                continue
-            f = STEP_HIGH if st["cur"] >= HIGH_FROM else STEP
-            new = min(round(st["cur"] * f), round(cap))
-            pct = round((new / st["cur"] - 1) * 100)
-            if live:
-                try:
-                    set_budget(meta_token, e["id"], new)
-                except Exception as ex:
-                    errors.append(f"{e['name']}: höjning misslyckades: {ex}")
-                    log(f"{cp:02d}:00", e["id"], e["name"], "fel", f"kunde inte höja: {ex}", **base)
+            rate = stores[code].get("rate", 1)
+            for e in ents:
+                if e["store"] != code:
                     continue
-            log(f"{cp:02d}:00", e["id"], e["name"], f"höj +{pct} %",
-                f"ROAS {roas:.2f} ≥ {limit:.2f}, {round(st['cur'])} → {new} kr", budget=new, **base)
-            st["cur"], st["steps"] = new, st["steps"] + 1
-            if live:
-                st["seen"] = new
+                st = state["ent"][e["id"]]
+                s0 = snapd["v"].get(e["id"], [0, 0])
+                sp, rv = cum[e["id"]][0] - s0[0], cum[e["id"]][1] - s0[1]
+                sp_sek = sp * rate
+                roas = rv / sp if sp > 0 else 0
+                cap = st["base"] * MAX_MULT
+                base = dict(spend=round(sp_sek), roas=round(roas, 2))
+                t = f"{cp:02d}:00"
+                since = snapd["t"]
+                if sp_sek < MIN_SPEND:
+                    log(t, code, e["id"], e["name"], "håll", f"för lite data ({round(sp_sek)} kr spend sedan {since})", **base)
+                    continue
+                if roas < lim:
+                    log(t, code, e["id"], e["name"], "håll", f"ROAS {roas:.2f} under gränsen {lim:.2f}", **base)
+                    continue
+                if st["cur"] >= cap - 1:
+                    log(t, code, e["id"], e["name"], "håll", f"maxtaket {round(cap)} kr ({MAX_MULT} × original) nått", **base)
+                    continue
+                f = STEP_HIGH if st["cur"] >= HIGH_FROM else STEP
+                new = min(round(st["cur"] * f), round(cap))
+                pct = round((new / st["cur"] - 1) * 100)
+                if live:
+                    try:
+                        set_budget(meta_token, e["id"], new)
+                    except Exception as ex:
+                        errors.append(f"{e['name']}: höjning misslyckades: {ex}")
+                        log(t, code, e["id"], e["name"], "fel", f"kunde inte höja: {ex}", **base)
+                        continue
+                log(t, code, e["id"], e["name"], f"höj +{pct} %",
+                    f"ROAS {roas:.2f} ≥ {lim:.2f}, {round(st['cur'])} → {new} kr", budget=new, **base)
+                st["cur"], st["steps"] = new, st["steps"] + 1
+                if live:
+                    st["seen"] = new
 
     # återställning 23:30 (görs om vid nästa körning om något misslyckas)
     if (now.hour, now.minute) >= RESET_AT and not state["reset"]:
@@ -184,7 +233,7 @@ def run(juicy, juicy_token, meta_token, now, live=False):
                     ok = False
                     errors.append(f"{st['name']}: återställning misslyckades: {ex}")
                     continue
-            log(hhmm, i, st["name"], "återställ", f"{round(st['cur'])} → {round(st['base'])} kr (original)",
+            log(hhmm, st["store"], i, st["name"], "återställ", f"{round(st['cur'])} → {round(st['base'])} kr (original)",
                 budget=round(st["base"]))
             st["cur"] = st["base"]
             if live:
@@ -194,15 +243,16 @@ def run(juicy, juicy_token, meta_token, now, live=False):
     os.makedirs(os.path.dirname(STATE), exist_ok=True)
     json.dump(state, open(STATE, "w"), ensure_ascii=False)
 
-    if not state["snap"]:
+    if now.hour < SNAPSHOT_AT:
         nxt = f"{SNAPSHOT_AT:02d}:00 (mätning startar)"
     else:
         nxt = next((f"{c:02d}:00" for c in CHECKPOINTS if c not in state["done"]),
                    "23:30 (återställning)" if not state["reset"] else "i morgon 07:00")
+    for code in stores:
+        info[code]["snap"] = (state["snap"].get(code) or {}).get("t")
     return {
-        "test": not live, "highFrom": HIGH_FROM, "maxMult": MAX_MULT, "be": round(be, 2) if be else None,
-        "limit": limit, "margin": MARGIN, "minSpend": MIN_SPEND, "next": nxt, "log": state["log"], "errors": errors,
-        "snap": (state["snap"] or {}).get("t"),
-        "ent": [{"name": st["name"], "level": st["level"], "base": round(st["base"]), "steps": st["steps"],
+        "test": not live, "highFrom": HIGH_FROM, "maxMult": MAX_MULT, "margin": MARGIN, "minSpend": MIN_SPEND,
+        "next": nxt, "log": state["log"], "errors": errors, "stores": info,
+        "ent": [{"store": st["store"], "name": st["name"], "level": st["level"], "base": round(st["base"]), "steps": st["steps"],
                  "sim": round(st["cur"]), "meta": round(st.get("meta", st["cur"]))} for st in state["ent"].values()],
     }

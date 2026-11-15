@@ -163,11 +163,13 @@ def main():
 
     surf_data = None
     os.makedirs(os.path.join(HERE, "state"), exist_ok=True)  # cache-steget i workflowen kräver mappen
-    if os.environ.get("META_BUDGET_TOKEN") and "HOMELYST" in tokens:
+    if os.environ.get("META_BUDGET_TOKEN"):
         try:
             sys.path.insert(0, HERE)
             import surf
-            surf_data = surf.run(juicy, tokens["HOMELYST"], os.environ["META_BUDGET_TOKEN"].strip(), now,
+            surf_stores = {c: {"token": tokens[c], "rate": rates[stores[c]["cur"]][7] if c in stores else 1}
+                           for c in surf.SURF_STORES if c in tokens}
+            surf_data = surf.run(juicy, surf_stores, os.environ["META_BUDGET_TOKEN"].strip(), owner, now,
                                  live=os.environ.get("SURF_LIVE", "").strip().lower() == "true")
             errors += [f"Surf-scaling: {x}" for x in surf_data.get("errors", [])]
         except Exception as e:

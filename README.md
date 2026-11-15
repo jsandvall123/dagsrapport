@@ -14,8 +14,8 @@ Om något går fel skickar GitHub ett mejl, och felet syns i en röd ruta övers
 GitHubs eget schema startade aldrig (11–12 nov 2026), så rapporten väcks av **cron-job.org** (Johns konto, jobb "Dagsrapport") var 15:e minut. Jobbet gör POST till
 `https://api.github.com/repos/jsandvall123/dagsrapport/actions/workflows/daily.yml/dispatches` med body `{"ref":"main"}` och en fine-grained GitHub-nyckel (`dagsrapport-trigger`, bara Actions read/write på detta repo). **Nyckeln går ut 12 nov 2027** och måste då förnyas och bytas i cron-job.org. GitHubs cron i workflowen ligger kvar som reserv.
 
-## Surf-scaling (Homelyst)
-`surf.py` sköter Homelysts budgetar enligt Johns regler (står överst i filen): mätning från 07, höjning kl 09/12/15/18/21 om ROAS sedan 07 ≥ 1,3 × break-even, +50 % (+25 % från 25 000 kr), tak 4 × originalbudget, återställning 23:30. Ändras en budget för hand fortsätter skriptet därifrån.
+## Surf-scaling (Homelyst + Isella)
+`surf.py` sköter budgetarna för Homelyst (sedan 13 nov 2026) och Isella SE/DK/NO/FI/DE (sedan 15 nov 2026) enligt Johns regler (står överst i filen). Vilka kampanjer som hör till vilken butik avgörs av `owner()` i `build.py`, och listan över butiker ligger i `SURF_STORES`. Regeln: mätning från 07, höjning kl 09/12/15/18/21 om ROAS sedan 07 ≥ 1,3 × butikens egen break-even (senaste 7 dagarna), +50 % (+25 % från 25 000 kr), tak 4 × originalbudget, återställning 23:30. Ändras en budget för hand fortsätter skriptet därifrån.
 
 **Av/på:** repo-variabeln `SURF_LIVE` (Settings → Secrets and variables → Actions → Variables). `true` = skarpt, allt annat = testläge som bara räknar. Stänger man av mitt på dagen ligger höjda budgetar kvar tills man återställer dem själv.
 
