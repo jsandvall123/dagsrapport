@@ -5,6 +5,9 @@ Regler (John, 13 nov 2026, samma för alla butiker):
 - Kontrollpunkter kl 09, 12, 15, 18, 21: ROAS mäts från kl 07 till nu (Juicy).
 - Höj +50 % (+25 % när budgeten redan är minst 25 000 kr) om ROAS >= 1,3 × butikens egen break-even-ROAS
   och spend sedan 07 >= MIN_SPEND. Aldrig över 4 × dagens originalbudget.
+- Tillägg 15 nov 2026: höjning kräver också att ROAS sedan förra kontrollen är över gränsen (om fönstret
+  har minst MIN_SPEND i spend). Är ROAS sedan förra kontrollen under break-even sänks budgeten −25 %,
+  aldrig under originalbudgeten.
 - CBO: kampanjbudgeten. ABO: varje annonsuppsättnings budget. Alla aktiva kampanjer som owner() ger en butik i SURF_STORES.
 - Ändrar John budgeten själv under dagen fortsätter skriptet från hans nya budget.
 - Kl 23:30 återställs allt till budgeten som gällde när dagen började (originalbudgeten).
@@ -28,6 +31,7 @@ RESET_AT = (23, 30)
 STEP = 1.5
 STEP_HIGH = 1.25  # försiktigare höjning när budgeten nått HIGH_FROM
 HIGH_FROM = 25000  # kr/dag
+STEP_DOWN = 0.75  # sänkning när senaste fönstret går under break-even
 MAX_MULT = 4  # aldrig över 4 × originalbudgeten
 MIN_SPEND = 300  # kr spend sedan 07 innan ett beslut tas
 MARGIN = 1.3  # gräns = MARGIN × break-even-ROAS
@@ -183,23 +187,56 @@ def run(juicy, stores, meta_token, owner, now, live=False):
                 errors.append(f"{code}: Juicy svarade inte vid kontrollen {cp:02d}: {ex}")
                 continue
             rate = stores[code].get("rate", 1)
+            be = info[code]["be"]
             for e in ents:
                 if e["store"] != code:
                     continue
                 st = state["ent"][e["id"]]
                 s0 = snapd["v"].get(e["id"], [0, 0])
-                sp, rv = cum[e["id"]][0] - s0[0], cum[e["id"]][1] - s0[1]
-                sp_sek = sp * rate
+                c1 = cum[e["id"]]
+                sp, rv = c1[0] - s0[0], c1[1] - s0[1]
+                # fönstret sedan förra kontrollen (eller sedan mätningen startade)
+                w0 = st.get("last") or s0
+                wsp, wrv = c1[0] - w0[0], c1[1] - w0[1]
+                wsince = st.get("last_t") or snapd["t"]
+                st["last"], st["last_t"] = c1, f"{cp:02d}:00"
+                sp_sek, wsp_sek = sp * rate, wsp * rate
                 roas = rv / sp if sp > 0 else 0
+                wroas = wrv / wsp if wsp > 0 else 0
                 cap = st["base"] * MAX_MULT
-                base = dict(spend=round(sp_sek), roas=round(roas, 2))
+                base = dict(spend=round(sp_sek), roas=round(roas, 2), wspend=round(wsp_sek), wroas=round(wroas, 2))
                 t = f"{cp:02d}:00"
                 since = snapd["t"]
+                wtxt = f"sedan {wsince}: ROAS {wroas:.2f} på {round(wsp_sek)} kr"
+
+                # 1. sänk: senaste fönstret under break-even → −25 %, aldrig under originalbudgeten
+                if be and wsp_sek >= MIN_SPEND and wroas < be and st["cur"] > st["base"] + 1:
+                    new = max(round(st["cur"] * STEP_DOWN), round(st["base"]))
+                    pct = round((1 - new / st["cur"]) * 100)
+                    if live:
+                        try:
+                            set_budget(meta_token, e["id"], new)
+                        except Exception as ex:
+                            errors.append(f"{e['name']}: sänkning misslyckades: {ex}")
+                            log(t, code, e["id"], e["name"], "fel", f"kunde inte sänka: {ex}", **base)
+                            continue
+                    log(t, code, e["id"], e["name"], f"sänk −{pct} %",
+                        f"{wtxt}, under break-even {be:.2f}; {round(st['cur'])} → {new} kr", budget=new, **base)
+                    st["cur"], st["downs"] = new, st.get("downs", 0) + 1
+                    if live:
+                        st["seen"] = new
+                    continue
+
+                # 2. höj: ROAS sedan 07 OCH senaste fönstret över gränsen
                 if sp_sek < MIN_SPEND:
                     log(t, code, e["id"], e["name"], "håll", f"för lite data ({round(sp_sek)} kr spend sedan {since})", **base)
                     continue
                 if roas < lim:
-                    log(t, code, e["id"], e["name"], "håll", f"ROAS {roas:.2f} under gränsen {lim:.2f}", **base)
+                    log(t, code, e["id"], e["name"], "håll", f"ROAS {roas:.2f} sedan {since} under gränsen {lim:.2f}", **base)
+                    continue
+                if wsp_sek >= MIN_SPEND and wroas < lim:  # för lite spend i fönstret → beslut på hela dagen
+                    log(t, code, e["id"], e["name"], "håll",
+                        f"ROAS {roas:.2f} sedan {since} men {wtxt}, under gränsen {lim:.2f}", **base)
                     continue
                 if st["cur"] >= cap - 1:
                     log(t, code, e["id"], e["name"], "håll", f"maxtaket {round(cap)} kr ({MAX_MULT} × original) nått", **base)
@@ -215,7 +252,8 @@ def run(juicy, stores, meta_token, owner, now, live=False):
                         log(t, code, e["id"], e["name"], "fel", f"kunde inte höja: {ex}", **base)
                         continue
                 log(t, code, e["id"], e["name"], f"höj +{pct} %",
-                    f"ROAS {roas:.2f} ≥ {lim:.2f}, {round(st['cur'])} → {new} kr", budget=new, **base)
+                    f"ROAS {roas:.2f} sedan {since} och {wroas:.2f} sedan {wsince} ≥ {lim:.2f}, {round(st['cur'])} → {new} kr",
+                    budget=new, **base)
                 st["cur"], st["steps"] = new, st["steps"] + 1
                 if live:
                     st["seen"] = new
@@ -253,6 +291,6 @@ def run(juicy, stores, meta_token, owner, now, live=False):
     return {
         "test": not live, "highFrom": HIGH_FROM, "maxMult": MAX_MULT, "margin": MARGIN, "minSpend": MIN_SPEND,
         "next": nxt, "log": state["log"], "errors": errors, "stores": info,
-        "ent": [{"store": st["store"], "name": st["name"], "level": st["level"], "base": round(st["base"]), "steps": st["steps"],
+        "ent": [{"store": st["store"], "name": st["name"], "level": st["level"], "base": round(st["base"]), "steps": st["steps"], "downs": st.get("downs", 0),
                  "sim": round(st["cur"]), "meta": round(st.get("meta", st["cur"]))} for st in state["ent"].values()],
     }
