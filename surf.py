@@ -24,7 +24,8 @@ import urllib.request
 
 GRAPH = "https://graph.facebook.com/v21.0"
 AD_ACCOUNT = "act_3037939703006283"
-SURF_STORES = ["HOMELYST", "SE", "DK", "NO", "FI", "DE"]  # butikskoder från owner() i build.py
+# Homelyst borttagen 17 nov 2026 (Johns beslut): 80–90k omsättning med ~10 % vinst, budgetar sätts manuellt.
+SURF_STORES = ["SE", "DK", "NO", "FI", "DE"]  # butikskoder från owner() i build.py
 SNAPSHOT_AT = 7
 CHECKPOINTS = [9, 12, 15, 18, 21]
 RESET_AT = (23, 30)
