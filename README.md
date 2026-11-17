@@ -17,6 +17,9 @@ GitHubs eget schema startade aldrig (11–12 nov 2026), så rapporten väcks av 
 ## Per produkt och COGS
 Butiker i `PRODUCT_STORES` (nu Homelyst) visas även per produkt och land. Produkten läses ur kampanjnamnet (`LAND//BUTIK//PRODUKT/datum`), vinsten är Juicys vinst efter annonskostnad per annons. Tabellen "Per butik" har en COGS-kolumn som blir röd om en butik har sålt utan COGS.
 
+## PNL-sheets
+`pnl_sync.py` fyller i PNL-sheetet för varje butik (id:n i `SHEETS`) en gång per natt efter kl 04: de senaste 7 stängda dagarna, så sena returer och Metas efterjusteringar kommer med. Skriver bara B REV (före returer), C COGS, D FEES, E ADSPEND och J REFUNDS (returer); månadens vinst blir då Juicys vinst. Allt annat i sheetsen rörs inte. Kräver secret `GOOGLE_SA_JSON` (Google-tjänstkonto som är redigerare på sheetsen). Ny månad 2027: fliken "January 2027" måste finnas.
+
 ## Surf-scaling (Homelyst + Isella)
 `surf.py` sköter budgetarna för Homelyst (sedan 13 nov 2026) och Isella SE/DK/NO/FI/DE (sedan 15 nov 2026) enligt Johns regler (står överst i filen). Vilka kampanjer som hör till vilken butik avgörs av `owner()` i `build.py`, och listan över butiker ligger i `SURF_STORES`. Regeln: mätning från 07, höjning kl 09/12/15/18/21 om ROAS sedan 07 ≥ 1,3 × butikens egen break-even (senaste 7 dagarna), +50 % (+25 % från 25 000 kr), tak 4 × originalbudget, återställning 23:30. Sedan 15 nov krävs också att ROAS sedan förra kontrollen är över gränsen, och är den under break-even sänks budgeten −25 % (aldrig under originalet). Enskilda kampanjer kan få lägre tak i `MAX_MULT_FOR` i `surf.py` (sedan 15 nov: DK Egg Poacher 3x tills hl-dk_C03 är live). Ändras en budget för hand fortsätter skriptet därifrån.
 

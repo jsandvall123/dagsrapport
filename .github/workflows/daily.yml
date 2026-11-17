@@ -71,6 +71,23 @@ jobs:
           SURF_LIVE: ${{ vars.SURF_LIVE }}  # Settings → Secrets and variables → Actions → Variables. "true" = skarpt
         run: python build.py
 
+      - name: PNL-sheets (en gång per natt, gårdagen + 6 dagar bakåt)
+        if: steps.gate.outputs.run == 'true'
+        env:
+          JUICY_SE_TOKEN: ${{ secrets.JUICY_SE_TOKEN }}
+          JUICY_DK_TOKEN: ${{ secrets.JUICY_DK_TOKEN }}
+          JUICY_NO_TOKEN: ${{ secrets.JUICY_NO_TOKEN }}
+          JUICY_FI_TOKEN: ${{ secrets.JUICY_FI_TOKEN }}
+          JUICY_DE_TOKEN: ${{ secrets.JUICY_DE_TOKEN }}
+          JUICY_HOMELYST_TOKEN: ${{ secrets.JUICY_HOMELYST_TOKEN }}
+          JUICY_HUSTOVALD_TOKEN: ${{ secrets.JUICY_HUSTOVALD_TOKEN }}
+          JUICY_JUNO_TOKEN: ${{ secrets.JUICY_JUNO_TOKEN }}
+          JUICY_EARLO_TOKEN: ${{ secrets.JUICY_EARLO_TOKEN }}
+          GOOGLE_SA_JSON: ${{ secrets.GOOGLE_SA_JSON }}
+        run: |
+          if [ -n "$GOOGLE_SA_JSON" ]; then pip install -q google-auth requests; fi
+          python pnl_sync.py --nightly
+
       - name: Spara surf-scaling-state
         if: steps.gate.outputs.run == 'true' && always()
         uses: actions/cache/save@v4
