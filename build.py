@@ -162,39 +162,39 @@ def main():
             r = rates[cur]
             byday = {g["dateFrom"]: g["data"] for g in pl["groups"]}
             row = lambda key: [round(byday.get(d, {}).get(key, 0) * r[i]) for i, d in enumerate(iso)]
+            # annonser per dag (en hämtning per dag) -> topp 5 per period, kampanjer per dag och produkter
+            daily = [juicy(tok, f"/api/stats/facebook/ads?dateFrom={d}&dateTo={d}")["data"] for d in iso]
             top = {}
             for per, (a, b) in periods.items():
-                ads = juicy(tok, f"/api/stats/facebook/ads?dateFrom={iso[a]}&dateTo={iso[b]}")["data"]
-                avg = sum(r[a:b + 1]) / (b + 1 - a)
-                top[per] = [[x["name"], round(x["adSpend"] * avg), round(x["netRevenueV2"] * avg), round(x["profitAfterAdSpend"] * avg)]
-                            for x in sorted(ads, key=lambda x: -x["adSpend"])[:5] if x["adSpend"] > 0]
-            stores[code] = {"name": name, "cur": cur, "R": row("netRevenue"), "S": row("totalAdSpend"), "P": row("netProfit"), "C": row("cogs"), "top": top}
-        except Exception as e:
-            errors.append(f"{name}: {e}")
-
-    # per produkt och land (Juicys vinst efter annonskostnad per annons), en hämtning per dag
-    for code in PRODUCT_STORES:
-        if code not in stores:
-            continue
-        try:
-            r = rates[stores[code]["cur"]]
-            prods = {}
-            for i, d in enumerate(iso):
-                for x in juicy(tokens[code], f"/api/stats/facebook/ads?dateFrom={d}&dateTo={d}")["data"]:
+                agg = {}
+                for i in range(a, b + 1):
+                    for x in daily[i]:
+                        t = agg.setdefault(x["name"], [x["name"], 0, 0, 0])
+                        t[1] += x["adSpend"] * r[i]; t[2] += x["netRevenueV2"] * r[i]; t[3] += x["profitAfterAdSpend"] * r[i]
+                top[per] = [[n, round(sp), round(rv), round(pr)] for n, sp, rv, pr in sorted(agg.values(), key=lambda t: -t[1])[:5] if sp > 0]
+            camps = {}
+            for i, ads in enumerate(daily):
+                for x in ads:
                     if not x["adSpend"] and not x["netRevenueV2"]:
                         continue
-                    prod, land = product_of(x.get("campaignName"))
-                    row = prods.setdefault(prod, {}).setdefault(land, {"R": [0] * len(iso), "S": [0] * len(iso), "P": [0] * len(iso)})
-                    row["R"][i] += x["netRevenueV2"] * r[i]
-                    row["S"][i] += x["adSpend"] * r[i]
-                    row["P"][i] += x["profitAfterAdSpend"] * r[i]
-            for lands in prods.values():
-                for row in lands.values():
-                    for k in row:
-                        row[k] = [round(v) for v in row[k]]
-            stores[code]["products"] = prods
+                    c = camps.setdefault(x.get("campaignName") or "?", {"S": [0.0] * len(iso), "R": [0.0] * len(iso), "P": [0.0] * len(iso)})
+                    c["S"][i] += x["adSpend"] * r[i]; c["R"][i] += x["netRevenueV2"] * r[i]; c["P"][i] += x["profitAfterAdSpend"] * r[i]
+            camps = {n: {k: [round(v) for v in vals] for k, vals in c.items()} for n, c in camps.items()}
+            stores[code] = {"name": name, "cur": cur, "R": row("netRevenue"), "S": row("totalAdSpend"), "P": row("netProfit"),
+                            "C": row("cogs"), "top": top, "camps": camps}
+            if code in PRODUCT_STORES:  # per produkt och land (Juicys vinst efter annonskostnad per annons)
+                prods = {}
+                for i, ads in enumerate(daily):
+                    for x in ads:
+                        if not x["adSpend"] and not x["netRevenueV2"]:
+                            continue
+                        prod, land = product_of(x.get("campaignName"))
+                        pr = prods.setdefault(prod, {}).setdefault(land, {"R": [0] * len(iso), "S": [0] * len(iso), "P": [0] * len(iso)})
+                        pr["R"][i] += x["netRevenueV2"] * r[i]; pr["S"][i] += x["adSpend"] * r[i]; pr["P"][i] += x["profitAfterAdSpend"] * r[i]
+                stores[code]["products"] = {p: {l: {k: [round(v) for v in vals] for k, vals in d.items()} for l, d in ls.items()}
+                                            for p, ls in prods.items()}
         except Exception as e:
-            errors.append(f"{stores[code]['name']} per produkt: {e}")
+            errors.append(f"{name}: {e}")
 
     surf_data = None
     os.makedirs(os.path.join(HERE, "state"), exist_ok=True)  # cache-steget i workflowen kräver mappen

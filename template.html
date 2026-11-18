@@ -36,6 +36,7 @@ summary{cursor:pointer}.box{border-radius:8px;padding:10px 14px;font-size:13px;m
 @media (max-width:600px){.kpis{grid-template-columns:repeat(2,minmax(0,1fr))}.chart{height:260px}.hide-sm{display:none}table{font-size:13px;table-layout:auto}td:first-child{max-width:130px}}
 button.kr{margin-left:6px;font:inherit;font-size:11px;line-height:1;padding:2px 5px;border:1px solid var(--border);border-radius:5px;background:transparent;color:var(--muted);cursor:pointer}button.kr:hover{color:var(--text);border-color:var(--strong)}
 th.sortable{cursor:pointer;user-select:none}th.sortable:hover{color:var(--text)}
+table.camps td:first-child{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 </style>
 </head>
 <body>
@@ -54,6 +55,7 @@ th.sortable{cursor:pointer;user-select:none}th.sortable:hover{color:var(--text)}
 <div class="chart"><canvas id="ch" role="img" aria-label="Omsättning, annonskostnad och vinst per dag för vald butik och period"></canvas></div>
 
 <div id="prod"></div>
+<div id="camps"></div>
 <div id="surf"></div>
 <div id="daily"></div>
 <div id="split"></div>
@@ -101,6 +103,23 @@ const rng=x=>x.slice(PER[per].from,PER[per].to+1);
 const sum=x=>rng(x).reduce((q,w)=>q+w,0);
 const st=document.getElementById('st'),tb=document.getElementById('tb');
 document.addEventListener('click',ev=>{const k0=ev.target.closest('#split button.kr');if(k0){const c=k0.parentNode;if(!c.dataset.p){c.dataset.p=c.innerHTML;c.innerHTML=`${k0.dataset.kr}<button class="kr" title="Visa i procent">%</button>`}else{c.innerHTML=c.dataset.p;delete c.dataset.p}return}const h=ev.target.closest('#split th[data-sort]');if(!h)return;const k=h.dataset.sort;SS=SS.k===k?{k,d:-SS.d}:{k,d:1};try{localStorage.setItem('splitSort',JSON.stringify(SS))}catch(e){}render()});
+function spark(vals,ti){
+  const n=vals.length,m=Math.max(1,...vals.map(Math.abs)),W=100,H=30,mid=H/2,bw=Math.min(10,W/n*0.6);
+  return `<svg viewBox="0 0 ${W} ${H}" preserveAspectRatio="none" style="width:100%;height:30px;display:block" aria-hidden="true"><line x1="0" x2="${W}" y1="${mid}" y2="${mid}" stroke="var(--border)" stroke-width="1" vector-effect="non-scaling-stroke"/>`+
+    vals.map((v,i)=>{const h=Math.max(v?1.5:0,Math.abs(v)/m*(mid-1)),x=(i+.5)*W/n-bw/2;return `<rect x="${x.toFixed(2)}" y="${(v<0?mid:mid-h).toFixed(2)}" width="${bw.toFixed(2)}" height="${h.toFixed(2)}" rx="1" fill="${v<0?RD:GR}" opacity="${i===ti?.4:1}"><title>${esc(String(L[PER[per].from+i]||''))}: ${sg(v)}${f(v)} kr</title></rect>`}).join('')+'</svg>';
+}
+function renderCamps(){
+  const el=document.getElementById('camps'),C=D[store]&&D[store].camps;
+  if(!C){el.innerHTML='';return}
+  const one=PER[per].from===PER[per].to,withToday=!one&&PER[per].to===L.length-2;
+  const grf=x=>withToday?x.slice(PER[per].from,PER[per].to+2):rng(x);
+  const rows=Object.entries(C).map(([n,c])=>({n,S:sum(c.S),R:sum(c.R),P:sum(c.P),d:grf(c.P)})).filter(x=>x.S||x.R).sort((a,b)=>b.S-a.S);
+  if(!rows.length){el.innerHTML='';return}
+  const ti=withToday?rows[0].d.length-1:-1;
+  el.innerHTML='<p class="sec">Per kampanj · '+esc(PER[per].label)+'</p><table class="camps"><colgroup><col style="width:34%"><col><col class="hide-sm"><col><col><col style="width:22%"></colgroup><thead><tr><th>Kampanj</th><th>Spend</th><th class="hide-sm">Oms.</th><th>ROAS</th><th>Vinst</th><th>'+(one?'':'Vinst per dag')+'</th></tr></thead><tbody>'+
+    rows.map(x=>`<tr><td title="${esc(x.n)}">${esc(x.n)}</td><td>${f(x.S)}</td><td class="hide-sm">${f(x.R)}</td><td>${ro(x.R,x.S)}</td><td class="${cls(x.P)}">${sg(x.P)}${f(x.P)}</td><td>${one?'':spark(x.d,ti)}</td></tr>`).join('')+
+    '</tbody></table><p class="dim" style="font-size:12px;margin:4px 0 0">Vinst efter annonskostnad per annons i Juicy (utan fasta kostnader).'+(withToday?' Tonad stapel = idag hittills, räknas inte i summorna.':'')+'</p>';
+}
 function renderProd(){
   const el=document.getElementById('prod'),P=D[store]&&D[store].products;
   if(!P){el.innerHTML='';return}
@@ -148,7 +167,7 @@ function render(){
   rows.sort((a,b)=>(b[SS.k]-a[SS.k])*SS.d||b.P-a.P);
   const th=(k,t,x)=>`<th data-sort="${k}" class="sortable${x?' '+x:''}" title="Sortera">${t}${SS.k===k?(SS.d>0?' ↓':' ↑'):''}</th>`;
   document.getElementById('split').innerHTML='<p class="sec">Per butik · '+PER[per].label+'</p><table><colgroup><col style="width:22%"><col><col><col><col><col><col class="hide-sm"></colgroup><thead><tr><th>Butik</th>'+th('R','Oms.')+th('S','Spend')+th('cp','COGS')+th('ro','ROAS')+th('P','Vinst')+th('pp','Vinst %','hide-sm')+'</tr></thead><tbody>'+rows.map(({c,R,S,C,P})=>`<tr><td>${esc(NAME[c])}</td><td>${f(R)}</td><td>${f(S)}</td><td>${cg(R,C)}</td><td>${ro(R,S)}</td><td class="${cls(P)}">${sg(P)}${f(P)}</td><td class="${cls(P)} hide-sm">${pc(P/R*100)}</td></tr>`).join('')+'</tbody></table><p class="dim" style="font-size:12px;margin:4px 0 0">Klicka på en rubrik för att sortera, klicka igen för att vända.</p>';}
-  renderProd();renderSurf();
+  renderProd();renderCamps();renderSurf();
   const rows=d.top[per]||[];
   document.getElementById('tbody').innerHTML=rows.map(x=>`<tr><td title="${esc(x[0])}">${esc(x[0])}</td><td>${f(x[1])}</td><td class="hide-sm">${sp?Math.round(x[1]/sp*100):0} %</td><td>${f(x[2])}</td><td>${ro(x[2],x[1])}</td><td class="${cls(x[3])}">${sg(x[3])}${f(x[3])}</td></tr>`).join('')+(rows.length?`<tr><td class="dim">Topp 5 av total</td><td colspan="5" class="dim">${sp?Math.round(rows.reduce((q,x)=>q+x[1],0)/sp*100):0} % av ${f(sp)} kr</td></tr>`:'<tr><td colspan="6" class="dim">Ingen annonsspend i perioden</td></tr>');
   document.getElementById('foot').textContent='DKK, NOK och EUR omräknade med Riksbankens dagskurs. Omsättning = nettoomsättning. Vinst per annons = Juicys bruttovinst minus spend (före transaktionsavgifter). Annonsnamn exakt som i Meta.';
