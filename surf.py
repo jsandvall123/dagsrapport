@@ -9,7 +9,8 @@ Regler (John, 13 nov 2026, samma för alla butiker):
   har minst MIN_SPEND i spend). Är ROAS sedan förra kontrollen under break-even sänks budgeten −25 %,
   aldrig under originalbudgeten.
 - CBO: kampanjbudgeten. ABO: varje annonsuppsättnings budget. Alla aktiva kampanjer som owner() ger en butik i SURF_STORES.
-- Ändrar John budgeten själv under dagen fortsätter skriptet från hans nya budget.
+- Ändrar John budgeten själv under dagen fortsätter skriptet från hans nya budget, och den blir dagens
+  originalbudget (20 nov 2026): 23:30 återställer till den, taket räknas på den.
 - Kl 23:30 återställs allt till budgeten som gällde när dagen började (originalbudgeten).
 
 LIVE styrs av miljövariabeln SURF_LIVE ("true" = skriv budgetar i Meta). Annars testläge: bara beräkning.
@@ -144,8 +145,9 @@ def run(juicy, stores, meta_token, owner, now, live=False):
                                           "name": e["name"], "level": e["level"], "store": e["store"]}
         elif abs(e["budget"] - st["seen"]) >= 1:  # budgeten ändrad i Meta av någon annan än skriptet
             log(hhmm, e["store"], e["id"], e["name"], "manuell ändring",
-                f"budgeten ändrad från {round(st['seen'])} till {round(e['budget'])} kr i Meta, fortsätter därifrån")
-            st["cur"] = st["seen"] = e["budget"]
+                f"budgeten ändrad från {round(st['seen'])} till {round(e['budget'])} kr i Meta, ny originalbudget")
+            # Johns beslut 20 nov 2026: en manuell ändring blir dagens nya originalbudget, så 23:30 inte tar tillbaka den
+            st["cur"] = st["seen"] = st["base"] = e["budget"]
         st["meta"] = e["budget"]
         st["camp"] = e["camp"]
 
