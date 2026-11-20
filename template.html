@@ -100,6 +100,12 @@ let store='ALLA',per='Idag',SS={k:'P',d:1};try{const x=JSON.parse(localStorage.g
 try{store=localStorage.getItem('store')||store;per=localStorage.getItem('per')||per}catch(e){}
 if(!D[store])store='ALLA';if(!PER[per])per='Idag';
 const rng=x=>x.slice(PER[per].from,PER[per].to+1);
+// kampanjer och produkter per dag finns bara för de sista DATA.short dagarna (index 0 = L.length-DATA.short)
+const OFF=L.length-DATA.short,rs=x=>x.slice(PER[per].from-OFF,PER[per].to-OFF+1),sumS=x=>rs(x).reduce((q,w)=>q+w,0);
+const MON=['jan','feb','mar','apr','maj','jun','jul','aug','sep','okt','nov','dec'];
+// "I år": slå ihop dagarna per månad
+const byMonth=x=>{const o=[],k=[];rng(x).forEach((v,i)=>{const m=DATA.mon[PER[per].from+i];if(k[k.length-1]!==m){k.push(m);o.push(0)}o[o.length-1]+=v});return o};
+const monLabels=()=>{const k=[];rng(DATA.mon).forEach(m=>{if(k[k.length-1]!==m)k.push(m)});return k.map(m=>MON[m])};
 const sum=x=>rng(x).reduce((q,w)=>q+w,0);
 const st=document.getElementById('st'),tb=document.getElementById('tb');
 document.addEventListener('click',ev=>{const k0=ev.target.closest('#split button.kr');if(k0){const c=k0.parentNode;if(!c.dataset.p){c.dataset.p=c.innerHTML;c.innerHTML=`${k0.dataset.kr}<button class="kr" title="Visa i procent">%</button>`}else{c.innerHTML=c.dataset.p;delete c.dataset.p}return}const h=ev.target.closest('#split th[data-sort]');if(!h)return;const k=h.dataset.sort;SS=SS.k===k?{k,d:-SS.d}:{k,d:1};try{localStorage.setItem('splitSort',JSON.stringify(SS))}catch(e){}render()});
@@ -111,9 +117,9 @@ function spark(vals,ti){
 function renderCamps(){
   const el=document.getElementById('camps'),C=D[store]&&D[store].camps;
   if(!C){el.innerHTML='';return}
-  const one=PER[per].from===PER[per].to,withToday=!one&&PER[per].to===L.length-2;
-  const grf=x=>withToday?x.slice(PER[per].from,PER[per].to+2):rng(x);
-  const rows=Object.entries(C).map(([n,c])=>({n,S:sum(c.S),R:sum(c.R),P:sum(c.P),d:grf(c.P)})).filter(x=>x.S||x.R).sort((a,b)=>b.S-a.S);
+  const lg=PER[per].long,one=lg||PER[per].from===PER[per].to,withToday=!one&&PER[per].to===L.length-2;
+  const grf=x=>withToday?x.slice(PER[per].from-OFF,PER[per].to-OFF+2):rs(x);
+  const rows=(lg?Object.entries(D[store].campsL[per]||{}).map(([n,c])=>({n,S:c[0],R:c[1],P:c[2],d:[]})):Object.entries(C).map(([n,c])=>({n,S:sumS(c.S),R:sumS(c.R),P:sumS(c.P),d:grf(c.P)}))).filter(x=>x.S||x.R).sort((a,b)=>b.S-a.S);
   if(!rows.length){el.innerHTML='';return}
   const ti=withToday?rows[0].d.length-1:-1;
   el.innerHTML='<p class="sec">Per kampanj · '+esc(PER[per].label)+'</p><table class="camps"><colgroup><col style="width:34%"><col><col class="hide-sm"><col><col><col style="width:22%"></colgroup><thead><tr><th>Kampanj</th><th>Spend</th><th class="hide-sm">Oms.</th><th>ROAS</th><th>Vinst</th><th>'+(one?'':'Vinst per dag')+'</th></tr></thead><tbody>'+
@@ -121,14 +127,16 @@ function renderCamps(){
     '</tbody></table><p class="dim" style="font-size:12px;margin:4px 0 0">Vinst efter annonskostnad per annons i Juicy (utan fasta kostnader).'+(withToday?' Tonad stapel = idag hittills, räknas inte i summorna.':'')+'</p>';
 }
 function renderProd(){
-  const el=document.getElementById('prod'),P=D[store]&&D[store].products;
-  if(!P){el.innerHTML='';return}
-  const one=PER[per].from===PER[per].to;
-  const tot=lands=>{const t={R:0,S:0,P:0,d:rng(L).map(()=>0)};Object.values(lands).forEach(x=>{t.R+=sum(x.R);t.S+=sum(x.S);t.P+=sum(x.P);rng(x.P).forEach((v,i)=>t.d[i]+=v)});return t};
+  const el=document.getElementById('prod'),lg=PER[per].long,P0=D[store]&&D[store].products;
+  if(!P0){el.innerHTML='';return}
+  // långa perioder: [oms, spend, vinst] per land -> samma form som per dag, men med en enda "dag"
+  const P=lg?Object.fromEntries(Object.entries((D[store].productsL||{})[per]||{}).map(([n,ls])=>[n,Object.fromEntries(Object.entries(ls).map(([l,t])=>[l,{R:[t[0]],S:[t[1]],P:[t[2]]}]))])):P0;
+  const one=lg||PER[per].from===PER[per].to,sm=lg?(x=>x[0]):sumS,rr=lg?(x=>x):rs;
+  const tot=lands=>{const t={R:0,S:0,P:0,d:rng(L).map(()=>0)};Object.values(lands).forEach(x=>{t.R+=sm(x.R);t.S+=sm(x.S);t.P+=sm(x.P);if(!lg)rr(x.P).forEach((v,i)=>t.d[i]+=v)});return t};
   const prods=Object.entries(P).map(([n,l])=>[n,l,tot(l)]).filter(x=>x[2].S||x[2].R).sort((a,b)=>b[2].S-a[2].S);
   const row=(name,t,sub)=>`<tr${sub?' class="dim"':''}><td style="${sub?'padding-left:18px':''}">${sub?esc(name):'<b>'+esc(name)+'</b>'}</td><td>${f(t.R)}</td><td>${f(t.S)}</td><td>${ro(t.R,t.S)}</td><td class="${cls(t.P)}">${sg(t.P)}${f(t.P)}</td></tr>`;
   let h='<p class="sec">Per produkt · '+esc(PER[per].label)+'</p><table><colgroup><col style="width:34%"><col><col><col><col></colgroup><thead><tr><th>Produkt / land</th><th>Oms.</th><th>Spend</th><th>ROAS</th><th>Vinst</th></tr></thead><tbody>';
-  prods.forEach(([n,l,t])=>{h+=row(n,t,false);Object.entries(l).map(([k,x])=>[k,{R:sum(x.R),S:sum(x.S),P:sum(x.P)}]).filter(x=>x[1].S||x[1].R).sort((a,b)=>b[1].S-a[1].S).forEach(([k,x])=>h+=row(k,x,true))});
+  prods.forEach(([n,l,t])=>{h+=row(n,t,false);Object.entries(l).map(([k,x])=>[k,{R:sm(x.R),S:sm(x.S),P:sm(x.P)}]).filter(x=>x[1].S||x[1].R).sort((a,b)=>b[1].S-a[1].S).forEach(([k,x])=>h+=row(k,x,true))});
   h+='</tbody></table><p class="dim" style="font-size:12px;margin:4px 0 0">Vinst efter annonskostnad per annons i Juicy. Summan blir inte exakt butikens vinst (fasta kostnader och köp utan annons räknas inte).</p>';
   if(!one)h+='<p class="sec">Vinst per dag per produkt</p><table><thead><tr><th>Produkt</th>'+rng(L).map(l=>'<th>'+esc(l)+'</th>').join('')+'</tr></thead><tbody>'+prods.map(([n,l,t])=>'<tr><td>'+esc(n)+'</td>'+t.d.map(v=>`<td class="${cls(v)}">${sg(v)}${f(v)}</td>`).join('')+'</tr>').join('')+'</tbody></table>';
   el.innerHTML=h;
@@ -150,15 +158,15 @@ function render(){
   [...st.children,...st2.children].forEach(b=>b.classList.toggle('on',b.dataset.k===store));[...tb.children].forEach(b=>b.classList.toggle('on',b.textContent===per));
   const d=D[store],one=PER[per].from===PER[per].to,pp=rng(d.P);
   // 4/7 dagar: hela dagar + en extra stapel för idag (hittills). Sammanfattning och tabeller räknar bara hela dagar.
-  const withToday=!one&&PER[per].to===L.length-2,grf=x=>withToday?x.slice(PER[per].from,PER[per].to+2):rng(x);
+  const mo=PER[per].month,withToday=!one&&!mo&&PER[per].to===L.length-2,grf=x=>mo?byMonth(x):withToday?x.slice(PER[per].from,PER[per].to+2):rng(x);
   const gp=grf(d.P),ti=withToday?gp.length-1:-1,dim=(c,i)=>i===ti?c.replace(/[\d.]+\)$/,m=>(parseFloat(m)/2.2).toFixed(2)+')'):c;
-  chart.$today=ti;chart.data.labels=grf(L).map((l,i)=>i===ti?[l,'hittills']:l);
+  chart.$today=ti;chart.data.labels=(mo?monLabels():grf(L)).map((l,i)=>i===ti?[l,'hittills']:l);
   chart.data.datasets[0].data=grf(d.R);chart.data.datasets[1].data=grf(d.S);chart.data.datasets[2].data=gp;
   chart.data.datasets[0].backgroundColor=gp.map((_,i)=>dim('rgba(136,135,128,.35)',i));chart.data.datasets[1].backgroundColor=gp.map((_,i)=>dim('rgba(42,120,214,.35)',i));
   chart.data.datasets[2].backgroundColor=gp.map((v,i)=>i===ti?(v<0?'rgba(227,73,72,.45)':'rgba(27,175,122,.45)'):(v<0?RD:GR));chart.data.datasets.forEach(x=>x.maxBarThickness=one?48:22);chart.update();
   const r=sum(d.R),sp=sum(d.S),pr=sum(d.P);
-  const days=rng(L).map((l,i)=>({l,R:rng(d.R)[i],S:rng(d.S)[i],P:pp[i]})).reverse();
-  document.getElementById('daily').innerHTML=one?'':'<p class="sec">Vinst per dag · '+esc(NAME[store])+'</p><table><colgroup><col style="width:22%"><col><col><col><col><col class="hide-sm"></colgroup><thead><tr><th>Dag</th><th>Oms.</th><th>Spend</th><th>ROAS</th><th>Vinst</th><th class="hide-sm">Vinst %</th></tr></thead><tbody>'+days.map(x=>`<tr><td>${esc(x.l)}</td><td>${f(x.R)}</td><td>${f(x.S)}</td><td>${ro(x.R,x.S)}</td><td class="${cls(x.P)}">${sg(x.P)}${f(x.P)}</td><td class="${cls(x.P)} hide-sm">${pc(x.P/x.R*100)}</td></tr>`).join('')+`<tr><td><b>Totalt</b></td><td><b>${f(r)}</b></td><td><b>${f(sp)}</b></td><td><b>${ro(r,sp)}</b></td><td class="${cls(pr)}"><b>${sg(pr)}${f(pr)}</b></td><td class="${cls(pr)} hide-sm"><b>${pc(pr/r*100)}</b></td></tr></tbody></table>`;
+  const days=(mo?monLabels().map((l,i)=>({l,R:byMonth(d.R)[i],S:byMonth(d.S)[i],P:byMonth(d.P)[i]})):rng(L).map((l,i)=>({l,R:rng(d.R)[i],S:rng(d.S)[i],P:pp[i]}))).reverse();
+  document.getElementById('daily').innerHTML=one?'':'<p class="sec">Vinst per '+(mo?'månad':'dag')+' · '+esc(NAME[store])+'</p><table><colgroup><col style="width:22%"><col><col><col><col><col class="hide-sm"></colgroup><thead><tr><th>'+(mo?'Månad':'Dag')+'</th><th>Oms.</th><th>Spend</th><th>ROAS</th><th>Vinst</th><th class="hide-sm">Vinst %</th></tr></thead><tbody>'+days.map(x=>`<tr><td>${esc(x.l)}</td><td>${f(x.R)}</td><td>${f(x.S)}</td><td>${ro(x.R,x.S)}</td><td class="${cls(x.P)}">${sg(x.P)}${f(x.P)}</td><td class="${cls(x.P)} hide-sm">${pc(x.P/x.R*100)}</td></tr>`).join('')+`<tr><td><b>Totalt</b></td><td><b>${f(r)}</b></td><td><b>${f(sp)}</b></td><td><b>${ro(r,sp)}</b></td><td class="${cls(pr)}"><b>${sg(pr)}${f(pr)}</b></td><td class="${cls(pr)} hide-sm"><b>${pc(pr/r*100)}</b></td></tr></tbody></table>`;
   document.getElementById('sumh').textContent='Sammanfattning · '+NAME[store]+' · '+PER[per].label;
   document.getElementById('sum').innerHTML=`<div class="k"><p class="kl">Vinst</p><p class="kv ${cls(pr)}">${sg(pr)}${f(pr)} kr</p><p class="ks">${pc(pr/r*100)} av oms.</p></div><div class="k"><p class="kl">Omsättning</p><p class="kv">${f(r)}</p></div><div class="k"><p class="kl">Annonskostnad</p><p class="kv">${f(sp)}</p></div><div class="k"><p class="kl">ROAS</p><p class="kv">${ro(r,sp)}</p></div>`;
   const cg=(R,C)=>R>0&&!C?'<span class="neg" title="Ingen COGS trots försäljning – kolla produktkostnaden i Juicy">0 ⚠</span>':R?`${pc(C/R*100)}<button class="kr" data-kr="${f(C)} kr" title="Visa i kronor">kr</button>`:'–';
@@ -173,7 +181,7 @@ function render(){
   document.getElementById('foot').textContent='DKK, NOK och EUR omräknade med Riksbankens dagskurs. Omsättning = nettoomsättning. Vinst per annons = Juicys bruttovinst minus spend (före transaktionsavgifter). Annonsnamn exakt som i Meta.';
 }
 // aktiv = spend i dag eller i går; övriga i en dämpad rad under
-const st2=document.getElementById('st2'),active=c=>D[c].S[6]>0||D[c].S[7]>0;
+const st2=document.getElementById('st2'),active=c=>D[c].S[L.length-2]>0||D[c].S[L.length-1]>0;
 const btn=(k,el)=>{const b=document.createElement('button');b.textContent=NAME[k];b.dataset.k=k;b.onclick=()=>{store=k;render()};el.appendChild(b)};
 ['ALLA',...codes.filter(active)].forEach(k=>btn(k,st));
 const idle=codes.filter(c=>!active(c));

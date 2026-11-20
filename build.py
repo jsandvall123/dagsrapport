@@ -129,9 +129,22 @@ def main():
     now = dt.datetime.now(ZoneInfo("Europe/Stockholm"))
     today = now.date()
     end = today - dt.timedelta(days=1)  # sista hela dagen
-    days = [today - dt.timedelta(days=7 - i) for i in range(8)]  # index 0–6 = 7 hela dagar, 7 = idag (hittills)
+    # dagar från 1 jan (eller förra månadens början i januari) t.o.m. idag; sista index = idag (hittills)
+    m_this = today.replace(day=1)
+    m_prev_end = m_this - dt.timedelta(days=1)
+    m_prev = m_prev_end.replace(day=1)
+    jan1 = today.replace(month=1, day=1)
+    first = min(m_prev, jan1, today - dt.timedelta(days=7))
+    days = [first + dt.timedelta(days=i) for i in range((today - first).days + 1)]
     iso = [d.isoformat() for d in days]
-    periods = {"Idag": (7, 7), "Igår": (6, 6), "4 dagar": (3, 6), "7 dagar": (0, 6)}
+    N = len(days)
+    ix = lambda d: (d - first).days
+    upto = lambda d: N - 2 if d < today else N - 1  # t.o.m. igår, eller bara idag den första
+    periods = {"Idag": (N - 1, N - 1), "Igår": (N - 2, N - 2), "4 dagar": (N - 5, N - 2), "7 dagar": (N - 8, N - 2),
+               "Denna månad": (ix(m_this), upto(m_this)), "Förra månaden": (ix(m_prev), ix(m_prev_end)),
+               "I år": (ix(jan1), upto(jan1))}
+    SHORT = 8  # annonser hämtas per dag för de sista 8 dagarna; längre perioder hämtas summerat
+    LONG = ["Denna månad", "Förra månaden", "I år"]
 
     errors = []
     try:
@@ -163,25 +176,43 @@ def main():
             byday = {g["dateFrom"]: g["data"] for g in pl["groups"]}
             row = lambda key: [round(byday.get(d, {}).get(key, 0) * r[i]) for i, d in enumerate(iso)]
             # annonser per dag (en hämtning per dag) -> topp 5 per period, kampanjer per dag och produkter
-            daily = [juicy(tok, f"/api/stats/facebook/ads?dateFrom={d}&dateTo={d}")["data"] for d in iso]
-            top = {}
+            off = N - SHORT
+            daily = [juicy(tok, f"/api/stats/facebook/ads?dateFrom={d}&dateTo={d}")["data"] for d in iso[off:]]
+            rs = r[off:]
+            # längre perioder: en summerad hämtning per period, omräknad med periodens snittkurs
+            longads = {}
+            for per in LONG:
+                a, b = periods[per]
+                longads[per] = (juicy(tok, f"/api/stats/facebook/ads?dateFrom={iso[a]}&dateTo={iso[b]}")["data"],
+                                sum(r[a:b + 1]) / (b - a + 1))
+            top, top_src = {}, {}
             for per, (a, b) in periods.items():
                 agg = {}
-                for i in range(a, b + 1):
-                    for x in daily[i]:
+                src = [longads[per]] if per in LONG else [(daily[i - off], rs[i - off]) for i in range(a, b + 1)]
+                for ads, k in src:
+                    for x in ads:
                         t = agg.setdefault(x["name"], [x["name"], 0, 0, 0])
-                        t[1] += x["adSpend"] * r[i]; t[2] += x["netRevenueV2"] * r[i]; t[3] += x["profitAfterAdSpend"] * r[i]
+                        t[1] += x["adSpend"] * k; t[2] += x["netRevenueV2"] * k; t[3] += x["profitAfterAdSpend"] * k
                 top[per] = [[n, round(sp), round(rv), round(pr)] for n, sp, rv, pr in sorted(agg.values(), key=lambda t: -t[1])[:5] if sp > 0]
-            camps = {}
+            camps = {}  # sista 8 dagarna per dag (index 0 = dag N-8)
             for i, ads in enumerate(daily):
                 for x in ads:
                     if not x["adSpend"] and not x["netRevenueV2"]:
                         continue
-                    c = camps.setdefault(x.get("campaignName") or "?", {"S": [0.0] * len(iso), "R": [0.0] * len(iso), "P": [0.0] * len(iso)})
-                    c["S"][i] += x["adSpend"] * r[i]; c["R"][i] += x["netRevenueV2"] * r[i]; c["P"][i] += x["profitAfterAdSpend"] * r[i]
+                    c = camps.setdefault(x.get("campaignName") or "?", {"S": [0.0] * SHORT, "R": [0.0] * SHORT, "P": [0.0] * SHORT})
+                    c["S"][i] += x["adSpend"] * rs[i]; c["R"][i] += x["netRevenueV2"] * rs[i]; c["P"][i] += x["profitAfterAdSpend"] * rs[i]
             camps = {n: {k: [round(v) for v in vals] for k, vals in c.items()} for n, c in camps.items()}
+            campsL = {}  # längre perioder: [spend, oms, vinst] per kampanj
+            for per, (ads, k) in longads.items():
+                cl = campsL[per] = {}
+                for x in ads:
+                    if not x["adSpend"] and not x["netRevenueV2"]:
+                        continue
+                    t = cl.setdefault(x.get("campaignName") or "?", [0.0, 0.0, 0.0])
+                    t[0] += x["adSpend"] * k; t[1] += x["netRevenueV2"] * k; t[2] += x["profitAfterAdSpend"] * k
+                campsL[per] = {n: [round(v) for v in t] for n, t in cl.items()}
             stores[code] = {"name": name, "cur": cur, "R": row("netRevenue"), "S": row("totalAdSpend"), "P": row("netProfit"),
-                            "C": row("cogs"), "top": top, "camps": camps}
+                            "C": row("cogs"), "top": top, "camps": camps, "campsL": campsL}
             if code in PRODUCT_STORES:  # per produkt och land (Juicys vinst efter annonskostnad per annons)
                 prods = {}
                 for i, ads in enumerate(daily):
@@ -189,10 +220,21 @@ def main():
                         if not x["adSpend"] and not x["netRevenueV2"]:
                             continue
                         prod, land = product_of(x.get("campaignName"))
-                        pr = prods.setdefault(prod, {}).setdefault(land, {"R": [0] * len(iso), "S": [0] * len(iso), "P": [0] * len(iso)})
-                        pr["R"][i] += x["netRevenueV2"] * r[i]; pr["S"][i] += x["adSpend"] * r[i]; pr["P"][i] += x["profitAfterAdSpend"] * r[i]
+                        pr = prods.setdefault(prod, {}).setdefault(land, {"R": [0] * SHORT, "S": [0] * SHORT, "P": [0] * SHORT})
+                        pr["R"][i] += x["netRevenueV2"] * rs[i]; pr["S"][i] += x["adSpend"] * rs[i]; pr["P"][i] += x["profitAfterAdSpend"] * rs[i]
                 stores[code]["products"] = {p: {l: {k: [round(v) for v in vals] for k, vals in d.items()} for l, d in ls.items()}
                                             for p, ls in prods.items()}
+                prodsL = {}  # längre perioder: {produkt: {land: [oms, spend, vinst]}}
+                for per, (ads, k) in longads.items():
+                    pl_ = prodsL[per] = {}
+                    for x in ads:
+                        if not x["adSpend"] and not x["netRevenueV2"]:
+                            continue
+                        prod, land = product_of(x.get("campaignName"))
+                        t = pl_.setdefault(prod, {}).setdefault(land, [0.0, 0.0, 0.0])
+                        t[0] += x["netRevenueV2"] * k; t[1] += x["adSpend"] * k; t[2] += x["profitAfterAdSpend"] * k
+                    prodsL[per] = {p: {l: [round(v) for v in t] for l, t in ls.items()} for p, ls in pl_.items()}
+                stores[code]["productsL"] = prodsL
         except Exception as e:
             errors.append(f"{name}: {e}")
 
@@ -202,7 +244,7 @@ def main():
         try:
             sys.path.insert(0, HERE)
             import surf
-            surf_stores = {c: {"token": tokens[c], "rate": rates[stores[c]["cur"]][7] if c in stores else 1}
+            surf_stores = {c: {"token": tokens[c], "rate": rates[stores[c]["cur"]][-1] if c in stores else 1}
                            for c in surf.SURF_STORES if c in tokens}
             surf_data = surf.run(juicy, surf_stores, os.environ["META_BUDGET_TOKEN"].strip(), owner, now,
                                  live=os.environ.get("SURF_LIVE", "").strip().lower() == "true")
@@ -214,7 +256,10 @@ def main():
         "surf": surf_data,
         "generated": now.strftime("%Y-%m-%d %H:%M"),
         "labels": [f"{DAYS_SV[d.weekday()]} {d.day}" for d in days],
-        "periods": {p: {"from": a, "to": b, "label": span_label(days[a], days[b]) + (" (hittills)" if p == "Idag" else "")}
+        "mon": [d.month - 1 for d in days],
+        "short": SHORT,
+        "periods": {p: {"from": a, "to": b, "long": p in LONG, "month": p == "I år",
+                        "label": span_label(days[a], days[b]) + (" (hittills)" if p == "Idag" or b == N - 1 else "")}
                     for p, (a, b) in periods.items()},
         "order": [c for c, _ in STORES if c in stores],
         "stores": stores,
