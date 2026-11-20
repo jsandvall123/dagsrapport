@@ -148,6 +148,8 @@ def run(juicy, stores, meta_token, owner, now, live=False):
                 f"budgeten ändrad från {round(st['seen'])} till {round(e['budget'])} kr i Meta, ny originalbudget")
             # Johns beslut 20 nov 2026: en manuell ändring blir dagens nya originalbudget, så 23:30 inte tar tillbaka den
             st["cur"] = st["seen"] = st["base"] = e["budget"]
+        elif st["cur"] < st["base"] - 1:  # manuell sänkning registrerad före regeln ovan (skriptet går aldrig under base)
+            st["base"] = st["cur"]
         st["meta"] = e["budget"]
         st["camp"] = e["camp"]
 
