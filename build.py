@@ -78,9 +78,13 @@ def juicy(token, path, data=None):
 
 def sync_campaigns(tokens, dry):
     """Rättar ignore-listan i varje butik. Returnerar ändringar + nya kampanjer senaste 3 dagarna."""
-    changes, seen = [], {}
+    changes, seen, errs = [], {}, []
     for code, tok in tokens.items():
-        camps = juicy(tok, "/api/facebook/credentials")["campaigns"]
+        try:  # en butik som felar (t.ex. Juicy-abonnemang slut) ska inte stoppa kontrollen i de andra
+            camps = juicy(tok, "/api/facebook/credentials")["campaigns"]
+        except Exception as e:
+            errs.append(f"{code}: {e}")
+            continue
         entries = []
         for c in camps:
             seen[c["campaignId"]] = (c["name"], c["createdAt"][:10])
@@ -92,8 +96,16 @@ def sync_campaigns(tokens, dry):
             after = {c["campaignId"]: c["ignored"] for c in juicy(tok, "/api/facebook/campaigns/ignore", {"entries": entries})["campaigns"]}
             bad = [e for e in entries if after.get(e["campaignId"]) != e["ignored"]]
             if bad:
-                raise RuntimeError(f"{code}: kampanjkontrollen kunde inte ändra {len(bad)} kampanjer")
+                errs.append(f"{code}: kampanjkontrollen kunde inte ändra {len(bad)} kampanjer")
+    if errs:
+        raise PartialSync(changes, seen, errs)
     return changes, seen
+
+
+class PartialSync(Exception):
+    def __init__(self, changes, seen, errs):
+        super().__init__("; ".join(errs))
+        self.changes, self.seen = changes, seen
 
 
 def riksbank(series, start, end):
@@ -149,6 +161,9 @@ def main():
     errors = []
     try:
         changes, seen = sync_campaigns(tokens, dry)
+    except PartialSync as e:  # övriga butiker kontrollerade, bara de som felade saknas
+        changes, seen = e.changes, e.seen
+        errors.append(f"Kampanjkontroll: {e}")
     except Exception as e:
         changes, seen = [], {}
         errors.append(f"Kampanjkontroll: {e}")
