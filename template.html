@@ -127,7 +127,11 @@ tr.dt td{background:var(--bg)}tr.ld:hover td{background:color-mix(in srgb,var(--
 .bud{display:inline-flex;align-items:center;gap:8px;margin-right:14px;vertical-align:middle}
 .bud select,.bud button{font:inherit;font-size:13px;font-weight:600;border:0;border-radius:8px;padding:6px 12px;background:var(--surface);color:var(--text);box-shadow:0 0 0 1px var(--border);cursor:pointer}
 .bud button.go{background:var(--ok);color:#fff;box-shadow:none}
-td.bcell{cursor:pointer}td.bcell:hover .b{text-decoration:underline}
+td.bcell{cursor:pointer}
+td.bcell .b{display:inline-block;padding:5px 10px;border-radius:8px;background:var(--seg);transition:transform .1s ease-out}
+td.bcell .b::after{content:' ±';color:var(--muted);font-weight:500}
+td.bcell:hover .b{box-shadow:0 0 0 1px var(--strong)}td.bcell:active .b{transform:scale(.97)}
+td.bcell.open .b{background:var(--text);color:var(--bg)}td.bcell.open .b::after{color:inherit}
 </style>
 </head>
 <body>
@@ -394,7 +398,7 @@ function drawList(id,items,ix,empty){
 }
 function line(r,ix){
   const a=agg([r],ix),m=mg(a.P,a.R,a.S),v=verdict(r,ix);
-  return `<tr><td class="nm" title="${esc(r.name)}">${label(r)}</td><td${r.M&&r.M.st==='ACTIVE'&&DATA.dispatch?` class="bcell" data-id="${r.M.id}" title="Change budget"`:''}><span class="b">${budget(r)}</span> ${since(r)}</td><td>${bars(r)}</td><td>${kr(a.S)}</td><td>${num(a.O)}</td><td>${kr(a.R)}</td><td>${a.S?(a.R/a.S).toFixed(2).replace('.',','):'–'}</td><td class="${a.P>=0?'pos':'neg'}">${kr(a.P)}</td><td class="b ${tcl(m)}">${pct(m)}</td><td>${pills(r,ix)}</td><td>${today(r)}</td><td><span class="vd ${v[0]}" title="${v[2]}">${v[1]}</span></td></tr>`;
+  return `<tr><td class="nm" title="${esc(r.name)}">${label(r)}</td><td${r.M&&r.M.st==='ACTIVE'&&DATA.dispatch?` class="bcell${openL[r.M.id]?' open':''}" data-id="${r.M.id}" title="Change budget"`:''}><span class="b">${budget(r)}</span> ${since(r)}</td><td>${bars(r)}</td><td>${kr(a.S)}</td><td>${num(a.O)}</td><td>${kr(a.R)}</td><td>${a.S?(a.R/a.S).toFixed(2).replace('.',','):'–'}</td><td class="${a.P>=0?'pos':'neg'}">${kr(a.P)}</td><td class="b ${tcl(m)}">${pct(m)}</td><td>${pills(r,ix)}</td><td>${today(r)}</td><td><span class="vd ${v[0]}" title="${v[2]}">${v[1]}</span></td></tr>`;
 }
 const BUD={},openL={};
 function ctrl(r){
