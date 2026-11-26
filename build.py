@@ -27,8 +27,8 @@ STORES = [  # ordning i rapporten
 ]
 PREFIX = {"DK": "DK//ISELLA.DK//", "NO": "NO//ISELLA.NO//", "FI": "FI//ISELLA.FI//", "DE": "DE//ISELLAWEAR.DE//"}
 PRODUCT_STORES = ["HOMELYST"]  # butiker med flera produkter: visas även per produkt och land
-DAYS_SV = ["mån", "tis", "ons", "tor", "fre", "lör", "sön"]
-MONTHS_SV = ["jan", "feb", "mar", "apr", "maj", "jun", "jul", "aug", "sep", "okt", "nov", "dec"]
+DAYS_SV = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"]  # sidan är på engelska sedan 26 nov 2026
+MONTHS_SV = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"]
 HERE = os.path.dirname(os.path.abspath(__file__))
 
 
@@ -57,8 +57,8 @@ def product_of(campaign):
     land = parts[0] if len(parts) > 1 and len(parts[0]) == 2 else "?"
     prod = parts[2].split("/")[0].strip() if len(parts) > 2 else ""
     if not prod or prod.upper() in ("ALL PRODUCTS", "BLACK FRIDAY"):
-        prod = "Flera produkter"
-    return prod.title() if prod != "Flera produkter" else prod, land
+        prod = "Multiple products"
+    return prod.title() if prod != "Multiple products" else prod, land
 
 
 def http(url, token=None, data=None):
@@ -91,12 +91,12 @@ def sync_campaigns(tokens, dry):
             want_ignored = owner(c["name"], c["createdAt"]) != code
             if c["ignored"] != want_ignored:
                 entries.append({"campaignId": c["campaignId"], "adAccountId": c["adAccountId"], "ignored": want_ignored})
-                changes.append({"store": code, "campaign": c["name"], "action": "ignorerad" if want_ignored else "räknas"})
+                changes.append({"store": code, "campaign": c["name"], "action": "ignored" if want_ignored else "counted"})
         if entries and not dry:
             after = {c["campaignId"]: c["ignored"] for c in juicy(tok, "/api/facebook/campaigns/ignore", {"entries": entries})["campaigns"]}
             bad = [e for e in entries if after.get(e["campaignId"]) != e["ignored"]]
             if bad:
-                errs.append(f"{code}: kampanjkontrollen kunde inte ändra {len(bad)} kampanjer")
+                errs.append(f"{code}: the campaign check could not change {len(bad)} campaigns")
     if errs:
         raise PartialSync(changes, seen, errs)
     return changes, seen
@@ -163,7 +163,7 @@ def meta_budgets(token, days):
         except Exception:
             continue
         who = a.get("actor_name") or "?"
-        byid[a["object_id"]]["ev"].append({"t": when, "old": old, "new": new, "by": "Automatiken" if "dagsrapport" in who else who.split()[0]})
+        byid[a["object_id"]]["ev"].append({"t": when, "old": old, "new": new, "by": "Automation" if "dagsrapport" in who else who.split()[0]})
     out = {}
     for m in byid.values():
         ev = sorted(m["ev"], key=lambda e: e["t"])
@@ -215,24 +215,24 @@ def main():
     ix = lambda d: (d - first).days
     upto = lambda d: N - 2 if d < today else N - 1  # t.o.m. igår, eller bara idag den första
     monday = today - dt.timedelta(days=today.weekday())
-    periods = {"Idag": (N - 1, N - 1), "Igår": (N - 2, N - 2), "3 dagar": (N - 4, N - 2), "4 dagar": (N - 5, N - 2),
-               "7 dagar": (N - 8, N - 2), "Denna vecka": (ix(monday), upto(monday)),
-               "Denna månad": (ix(m_this), upto(m_this)), "Förra månaden": (ix(m_prev), ix(m_prev_end)),
-               "I år": (ix(jan1), upto(jan1))}
+    periods = {"Today": (N - 1, N - 1), "Yesterday": (N - 2, N - 2), "3 days": (N - 4, N - 2), "4 days": (N - 5, N - 2),
+               "7 days": (N - 8, N - 2), "This week": (ix(monday), upto(monday)),
+               "This month": (ix(m_this), upto(m_this)), "Last month": (ix(m_prev), ix(m_prev_end)),
+               "This year": (ix(jan1), upto(jan1))}
     SHORT = 8  # annonser hämtas per dag för de sista 8 dagarna; längre perioder hämtas summerat
-    LONG = ["Denna månad", "Förra månaden", "I år"]
+    LONG = ["This month", "Last month", "This year"]
 
     errors = []
     try:
         changes, seen = sync_campaigns(tokens, dry)
     except PartialSync as e:  # övriga butiker kontrollerade, bara de som felade saknas
         changes, seen = e.changes, e.seen
-        errors.append(f"Kampanjkontroll: {e}")
+        errors.append(f"Campaign check: {e}")
     except Exception as e:
         changes, seen = [], {}
-        errors.append(f"Kampanjkontroll: {e}")
+        errors.append(f"Campaign check: {e}")
     new_since = (end - dt.timedelta(days=2)).isoformat()
-    new_camps = sorted(({"date": d, "name": n, "store": owner(n, d) or "ingen"} for n, d in seen.values() if d >= new_since),
+    new_camps = sorted(({"date": d, "name": n, "store": owner(n, d) or "none"} for n, d in seen.values() if d >= new_since),
                        key=lambda x: x["date"])
 
     # växelkurser: senaste noteringen på eller före varje dag (helger = fredagens kurs)
@@ -352,7 +352,7 @@ def main():
         try:
             scale_meta = meta_budgets(os.environ["META_BUDGET_TOKEN"].strip(), iso[N - SHORT:])
         except Exception as e:
-            errors.append(f"Meta-budgetar: {e}")
+            errors.append(f"Meta budgets: {e}")
 
     data = {
         "scale": {"days": iso[N - SHORT:], "stores": scale_stores, "meta": scale_meta},
@@ -362,8 +362,8 @@ def main():
         "labels": [f"{DAYS_SV[d.weekday()]} {d.day}" for d in days],
         "mon": [d.month - 1 for d in days],
         "short": SHORT,
-        "periods": {p: {"from": a, "to": b, "long": p in LONG, "month": p == "I år",
-                        "label": span_label(days[a], days[b]) + (" (hittills)" if p == "Idag" or b == N - 1 else "")}
+        "periods": {p: {"from": a, "to": b, "long": p in LONG, "month": p == "This year",
+                        "label": span_label(days[a], days[b]) + (" (so far)" if p == "Today" or b == N - 1 else "")}
                     for p, (a, b) in periods.items()},
         "order": [c for c, _ in STORES if c in stores],
         "stores": stores,
