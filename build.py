@@ -242,7 +242,7 @@ def main():
         obs = riksbank(series, start, iso[-1])
         rates[cur] = [[v for d, v in obs if d <= day][-1] for day in iso]
 
-    stores, scale_stores = {}, {}
+    stores, scale_stores, warnings = {}, {}, []
     for code, name in STORES:
         if code not in tokens:
             continue
@@ -262,8 +262,12 @@ def main():
             longads = {}
             for per in LONG:
                 a, b = periods[per]
-                longads[per] = (juicy(tok, f"/api/stats/facebook/ads?dateFrom={iso[a]}&dateTo={iso[b]}")["data"],
-                                sum(r[a:b + 1]) / (b - a + 1))
+                try:  # Juicy svarar ibland 500 på långa perioder: butiken ska visas ändå, utan kampanjlistan för den perioden
+                    long_rows = juicy(tok, f"/api/stats/facebook/ads?dateFrom={iso[a]}&dateTo={iso[b]}")["data"]
+                except Exception as e:
+                    long_rows = []
+                    warnings.append(f"{name}: no campaign list for {per} ({e})")
+                longads[per] = (long_rows, sum(r[a:b + 1]) / (b - a + 1))
             top, top_src = {}, {}
             for per, (a, b) in periods.items():
                 agg = {}
@@ -370,6 +374,7 @@ def main():
         "sync": {"changes": changes, "new": new_camps},
         "missing": [n for c, n in STORES if c in missing],
         "errors": errors,
+        "warnings": warnings,
     }
     html = open(os.path.join(HERE, "template.html"), encoding="utf-8").read()
     html = html.replace("/*DATA*/null", json.dumps(data, ensure_ascii=False, separators=(",", ":")))
@@ -379,6 +384,8 @@ def main():
     print(f"Rapport {iso[0]}–{iso[-1]}: {len(stores)} butiker, {len(changes)} kampanjändringar, {len(new_camps)} nya kampanjer")
     for c in changes:
         print("  ", c["store"], c["action"], c["campaign"])
+    for w in warnings:
+        print("VARNING:", w)
     for e in errors:
         print("FEL:", e)
     if errors:

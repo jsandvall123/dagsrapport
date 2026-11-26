@@ -187,7 +187,8 @@ if(DATA.sync.changes.length)al2+=`<details class="box warn"><summary><b>The camp
 if(DATA.sync.new.length)al2+=`<details class="box warn"><summary><b>${DATA.sync.new.length} new campaigns</b> · check that the store is right</summary><ul>${DATA.sync.new.map(c=>`<li>${esc(c.date)} · ${esc(c.name)} → ${esc(NAME[c.store]||c.store)}</li>`).join('')}</ul></details>`;
 const noc=codes.filter(c=>D[c].C&&[L.length-2,L.length-1].some(i=>D[c].R[i]>0&&!D[c].C[i]));
 if(noc.length)al+=`<div class="box bad"><b>Sold without COGS yesterday or today:</b> ${esc(noc.map(c=>NAME[c]).join(', '))}. Check the product cost in Juicy.</div>`;
-document.getElementById('alerts').innerHTML=al;document.getElementById('syncnote').innerHTML=al2;
+document.getElementById('alerts').innerHTML=al;if((DATA.warnings||[]).length)al2+=`<details class="box warn"><summary><b>${DATA.warnings.length} notes from the run</b></summary><ul>${DATA.warnings.map(e=>'<li>'+esc(e)+'</li>').join('')}</ul></details>`;
+document.getElementById('syncnote').innerHTML=al2;
 
 const dark=matchMedia('(prefers-color-scheme: dark)').matches;
 const g=dark?'#2c2c2a':'#e1e0d9',mu='#898781',ring=dark?'#141413':'#ffffff',blk=dark?'#f0efec':'#0b0b0b',GR='#1baf7a',RD='#e34948';
