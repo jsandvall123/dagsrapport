@@ -344,7 +344,7 @@ def main():
             sys.path.insert(0, HERE)
             import surf
             surf_stores = {c: {"token": tokens[c], "rate": rates[stores[c]["cur"]][-1] if c in stores else 1}
-                           for c in surf.SURF_STORES if c in tokens}
+                           for c in surf.stores_for(now, list(tokens))}
             surf_data = surf.run(juicy, surf_stores, os.environ["META_BUDGET_TOKEN"].strip(), owner, now,
                                  live=os.environ.get("SURF_LIVE", "").strip().lower() == "true")
             errors += [f"Surf-scaling: {x}" for x in surf_data.get("errors", [])]

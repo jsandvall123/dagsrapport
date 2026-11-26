@@ -13,6 +13,15 @@ Regler (John, 13 nov 2026, samma för alla butiker):
   originalbudget (20 nov 2026): 23:30 återställer till den, taket räknas på den.
 - Kl 23:30 återställs allt till budgeten som gällde när dagen började (originalbudgeten).
 
+BLACK FRIDAY-LÄGE (John, 26 nov 2026) — gäller bara datumen i BF_DATES, alla aktiva kampanjer i alla butiker:
+- Mätning från kl 06. Kontroller 09, 12, 15, 18, 21.
+- Höj +50 % om vinsten (Juicys vinst efter annonskostnad / nettoomsättning) är minst 25 % BÅDE för dagen hittills
+  och för de senaste 3 timmarna, och kampanjen har minst 5 ordrar i dag. Har fönstret för lite spend avgör dagen.
+- Under 25 %: ingen höjning. Har kampanjen höjts i dag och vinsten de senaste 3 timmarna är under 20 %:
+  tillbaka till förra nivån (ett steg).
+- Tak 4 × morgonbudgeten (lägre tak i MAX_MULT_FOR gäller). 23:30 tillbaka till morgonbudgeten.
+- Efter BF_DATES gäller de vanliga reglerna ovan igen (bara SURF_STORES).
+
 LIVE styrs av miljövariabeln SURF_LIVE ("true" = skriv budgetar i Meta). Annars testläge: bara beräkning.
 State sparas i state/surf.json mellan körningarna (GitHub Actions-cache, aldrig publikt).
 """
@@ -28,6 +37,11 @@ AD_ACCOUNT = "act_3037939703006283"
 # Homelyst borttagen 17 nov 2026 (Johns beslut): 80–90k omsättning med ~10 % vinst, budgetar sätts manuellt.
 SURF_STORES = ["SE", "DK", "NO", "FI", "DE"]  # butikskoder från owner() i build.py
 SNAPSHOT_AT = 7
+BF_DATES = {"2026-11-27"}  # Black Friday-läget, se reglerna överst
+BF_SNAPSHOT_AT = 6
+BF_UP = 0.25  # vinst-% som krävs för höjning (dagen och senaste fönstret)
+BF_DOWN = 0.20  # under detta i senaste fönstret: tillbaka till förra nivån
+BF_MIN_ORDERS = 5
 CHECKPOINTS = [9, 12, 15, 18, 21]
 RESET_AT = (23, 30)
 STEP = 1.5
@@ -69,12 +83,21 @@ def set_budget(token, obj_id, kr):
         raise RuntimeError(f"Meta svarade {r}")
 
 
+def is_bf(now):
+    return now.date().isoformat() in BF_DATES
+
+
+def stores_for(now, all_codes):
+    """Butiker som surfskalas i dag: alla på Black Friday, annars SURF_STORES."""
+    return list(all_codes) if is_bf(now) else [c for c in SURF_STORES if c in all_codes]
+
+
 def running(o):
     """Påslagen och levererar. IN_PROCESS = Meta bearbetar en nyss gjord ändring (t.ex. vår budgethöjning)."""
     return o.get("status") == "ACTIVE" and o.get("effective_status") in ("ACTIVE", "IN_PROCESS", "WITH_ISSUES")
 
 
-def entities(token, owner):
+def entities(token, owner, allowed=None):
     """Aktiva kampanjer i surf-butikerna: CBO → kampanjen, ABO → varje aktiv annonsuppsättning.
     owner(namn, skapad) -> butikskod (samma regel som kampanjkontrollen i build.py)."""
     d = meta(f"{AD_ACCOUNT}/campaigns", token, limit=300,
@@ -83,7 +106,7 @@ def entities(token, owner):
     out = []
     for c in d.get("data", []):
         code = owner(c["name"], c.get("created_time", "")[:10])
-        if code not in SURF_STORES or not running(c):
+        if code not in (allowed if allowed is not None else SURF_STORES) or not running(c):
             continue
         if c.get("daily_budget"):
             out.append({"id": c["id"], "store": code, "level": "kampanj (CBO)", "name": c["name"],
@@ -105,12 +128,74 @@ def break_even(juicy, token, now):
     return s["netRevenue"] / (s["netRevenue"] - costs) if s["netRevenue"] > costs else None
 
 
+def bf_decide(e, st, s0, c1, cp, snapd, rate, live, meta_token, log, errors):
+    """Black Friday-regeln för en kampanj vid en kontroll. c1 = [spend, oms, vinst, ordrar] sedan midnatt."""
+    pad = lambda x: (list(x) + [0, 0, 0, 0])[:4]
+    c1, w0 = pad(c1), pad(st.get("last") or s0)
+    wsince = st.get("last_t") or snapd["t"]
+    st["last"], st["last_t"] = c1, f"{cp:02d}:00"
+    t, code = f"{cp:02d}:00", e["store"]
+    sp, rv, pr, orders = c1
+    wsp, wrv, wpr = c1[0] - w0[0], c1[1] - w0[1], c1[2] - w0[2]
+    margin = pr / rv if rv > 0 else None
+    wmargin = wpr / wrv if wrv > 0 else (-1.0 if wsp > 0 else None)
+    wok = wsp * rate >= MIN_SPEND  # fönstret har nog med spend för att avgöra något
+    pc = lambda m: "–" if m is None else f"{round(m * 100)} %"
+    base = dict(spend=round(sp * rate), wspend=round(wsp * rate), margin=None if margin is None else round(margin, 3),
+                wmargin=None if wmargin is None else round(wmargin, 3), orders=round(orders, 1))
+    hist = st.setdefault("hist", [])
+    mult = max_mult(st.get("camp") or st["name"])
+    cap = st["base"] * mult
+
+    def change(new, act, why):
+        if live:
+            try:
+                set_budget(meta_token, e["id"], new)
+            except Exception as ex:
+                errors.append(f"{e['name']}: budgetändring misslyckades: {ex}")
+                log(t, code, e["id"], e["name"], "fel", f"kunde inte ändra budget: {ex}", **base)
+                return False
+        log(t, code, e["id"], e["name"], act, why, budget=new, **base)
+        st["cur"] = new
+        if live:
+            st["seen"] = new
+        return True
+
+    # 1. dipp efter en höjning: tillbaka till förra nivån
+    if hist and wok and wmargin is not None and wmargin < BF_DOWN:
+        new = round(hist[-1])
+        pct = round((1 - new / st["cur"]) * 100)
+        if change(new, f"sänk −{pct} %", f"vinst {pc(wmargin)} sedan {wsince}, under {round(BF_DOWN * 100)} %; tillbaka till förra nivån {round(st['cur'])} → {new} kr"):
+            hist.pop()
+            st["downs"] = st.get("downs", 0) + 1
+        return
+    # 2. höj +50 %
+    if sp * rate < MIN_SPEND:
+        return log(t, code, e["id"], e["name"], "håll", f"för lite data ({round(sp * rate)} kr spend i dag)", **base)
+    if orders < BF_MIN_ORDERS:
+        return log(t, code, e["id"], e["name"], "håll", f"för få ordrar i dag ({round(orders)} av {BF_MIN_ORDERS})", **base)
+    if margin is None or margin < BF_UP:
+        return log(t, code, e["id"], e["name"], "håll", f"vinst {pc(margin)} i dag, under {round(BF_UP * 100)} %", **base)
+    if wok and (wmargin is None or wmargin < BF_UP):
+        return log(t, code, e["id"], e["name"], "håll", f"vinst {pc(margin)} i dag men {pc(wmargin)} sedan {wsince}, under {round(BF_UP * 100)} %", **base)
+    if st["cur"] >= cap - 1:
+        return log(t, code, e["id"], e["name"], "håll", f"maxtaket {round(cap)} kr ({mult} × original) nått", **base)
+    new = min(round(st["cur"] * STEP), round(cap))
+    pct = round((new / st["cur"] - 1) * 100)
+    old = st["cur"]
+    if change(new, f"höj +{pct} %", f"vinst {pc(margin)} i dag och {pc(wmargin) if wok else 'för lite spend'} sedan {wsince}, {round(old)} → {new} kr"):
+        hist.append(old)
+        st["steps"] = st["steps"] + 1
+
+
 def run(juicy, stores, meta_token, owner, now, live=False):
     """juicy(token, path) -> json. stores = {kod: {"token": juicy-token, "rate": lokal valuta → SEK}}.
     Budgetar i Meta är i SEK (annonskontots valuta). ROAS räknas i butikens egen valuta i Juicy,
     spend-golvet räknas om till SEK. Returnerar data för rapporten; fel samlas i 'errors'."""
     today = now.date().isoformat()
     hhmm = now.strftime("%H:%M")
+    bf = is_bf(now)
+    snap_at = BF_SNAPSHOT_AT if bf else SNAPSHOT_AT
     errors = []
     try:
         state = json.load(open(STATE))
@@ -137,7 +222,7 @@ def run(juicy, stores, meta_token, owner, now, live=False):
             be = None
         info[code] = {"be": round(be, 2) if be else None, "limit": round(be * MARGIN, 2) if be else None}
 
-    ents = [e for e in entities(meta_token, owner) if e["store"] in stores]
+    ents = [e for e in entities(meta_token, owner, list(stores)) if e["store"] in stores]
     for e in ents:
         st = state["ent"].get(e["id"])
         if st is None:  # första gången i dag: originalbudget = nuvarande budget
@@ -148,6 +233,7 @@ def run(juicy, stores, meta_token, owner, now, live=False):
                 f"budgeten ändrad från {round(st['seen'])} till {round(e['budget'])} kr i Meta, ny originalbudget")
             # Johns beslut 20 nov 2026: en manuell ändring blir dagens nya originalbudget, så 23:30 inte tar tillbaka den
             st["cur"] = st["seen"] = st["base"] = e["budget"]
+            st["hist"] = []
         elif st["cur"] < st["base"] - 1:  # manuell sänkning registrerad före regeln ovan (skriptet går aldrig under base)
             st["base"] = st["cur"]
         st["meta"] = e["budget"]
@@ -164,13 +250,14 @@ def run(juicy, stores, meta_token, owner, now, live=False):
             if e["store"] != code:
                 continue
             k, v = e["match"]
-            res[e["id"]] = [sum(a["adSpend"] for a in ads if a.get(k) == v),
-                            sum(a["netRevenueV2"] for a in ads if a.get(k) == v)]
+            mine = [a for a in ads if a.get(k) == v]
+            res[e["id"]] = [sum(a["adSpend"] for a in mine), sum(a["netRevenueV2"] for a in mine),
+                            sum(a.get("profitAfterAdSpend") or 0 for a in mine), sum(a.get("ordersFloat") or 0 for a in mine)]
         return res
 
     # ögonblicksbild kl 07, per butik. Startar en butik sent mäts den från då, och kontroller
     # närmare än en timme efter starten hoppas över (inga beslut på ett för kort fönster).
-    if now.hour >= SNAPSHOT_AT:
+    if now.hour >= snap_at:
         for code in stores:
             if code in state["snap"]:
                 continue
@@ -179,7 +266,7 @@ def run(juicy, stores, meta_token, owner, now, live=False):
             except Exception as ex:
                 errors.append(f"{code}: ögonblicksbild misslyckades: {ex}")
                 continue
-            late = now.hour > SNAPSHOT_AT or now.minute > 30
+            late = now.hour > snap_at or now.minute > 30
             skipped = [c for c in CHECKPOINTS if late and c * 60 < now.hour * 60 + now.minute + 60]
             state["snap"][code]["skip"] = skipped
             log(hhmm, code, "", "Alla kampanjer", "mätning startar",
@@ -192,7 +279,7 @@ def run(juicy, stores, meta_token, owner, now, live=False):
         for code in stores:
             snapd = state["snap"].get(code)
             lim = info[code]["limit"]
-            if not snapd or cp in snapd.get("skip", []) or not lim:
+            if not snapd or cp in snapd.get("skip", []) or (not lim and not bf):
                 continue
             try:
                 cum = cumulative(code)
@@ -207,6 +294,9 @@ def run(juicy, stores, meta_token, owner, now, live=False):
                 st = state["ent"][e["id"]]
                 s0 = snapd["v"].get(e["id"], [0, 0])
                 c1 = cum[e["id"]]
+                if bf:
+                    bf_decide(e, st, s0, c1, cp, snapd, rate, live, meta_token, log, errors)
+                    continue
                 sp, rv = c1[0] - s0[0], c1[1] - s0[1]
                 # fönstret sedan förra kontrollen (eller sedan mätningen startade)
                 w0 = st.get("last") or s0
@@ -295,15 +385,15 @@ def run(juicy, stores, meta_token, owner, now, live=False):
     os.makedirs(os.path.dirname(STATE), exist_ok=True)
     json.dump(state, open(STATE, "w"), ensure_ascii=False)
 
-    if now.hour < SNAPSHOT_AT:
-        nxt = f"{SNAPSHOT_AT:02d}:00 (mätning startar)"
+    if now.hour < snap_at:
+        nxt = f"{snap_at:02d}:00 (mätning startar)"
     else:
         nxt = next((f"{c:02d}:00" for c in CHECKPOINTS if c not in state["done"]),
                    "23:30 (återställning)" if not state["reset"] else "i morgon 07:00")
     for code in stores:
         info[code]["snap"] = (state["snap"].get(code) or {}).get("t")
     return {
-        "test": not live, "highFrom": HIGH_FROM, "maxMult": MAX_MULT, "margin": MARGIN, "minSpend": MIN_SPEND,
+        "test": not live, "bf": bf, "bfUp": BF_UP, "bfDown": BF_DOWN, "bfMinOrders": BF_MIN_ORDERS, "highFrom": HIGH_FROM, "maxMult": MAX_MULT, "margin": MARGIN, "minSpend": MIN_SPEND,
         "next": nxt, "log": state["log"], "errors": errors, "stores": info,
         "ent": [{"store": st["store"], "name": st["name"], "level": st["level"], "base": round(st["base"]), "steps": st["steps"], "downs": st.get("downs", 0), "mult": max_mult(st.get("camp") or st["name"]),
                  "sim": round(st["cur"]), "meta": round(st.get("meta", st["cur"]))} for st in state["ent"].values()],
