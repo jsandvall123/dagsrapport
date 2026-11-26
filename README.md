@@ -14,6 +14,11 @@ Om något går fel skickar GitHub ett mejl, och felet syns i en röd ruta övers
 GitHubs eget schema startade aldrig (11–12 nov 2026), så rapporten väcks av **cron-job.org** (Johns konto, jobb "Dagsrapport") var 15:e minut. Jobbet gör POST till
 `https://api.github.com/repos/jsandvall123/dagsrapport/actions/workflows/daily.yml/dispatches` med body `{"ref":"main"}` och en fine-grained GitHub-nyckel (`dagsrapport-trigger`, bara Actions read/write på detta repo). **Nyckeln går ut 12 nov 2027** och måste då förnyas och bytas i cron-job.org. GitHubs cron i workflowen ligger kvar som reserv.
 
+## Skalvyn (överst på sidan, sedan 26 nov 2026)
+Topplista, Ligg kvar och Läcklista per produkt och land, bedömt på 2 hela dagar (går att byta till igår, 3 eller 7). Johns regler: under 15 % vinst läcker, 15–20 % ligg kvar, 20 % på 2 dagar = höj 20–100 % upp till 10 000 kr/dag, över 25 % = skala hårt upp till 20 000 kr/dag. Gränserna står överst i skalvyns skript i `template.html` (`HOLD`, `UP`, `HARD`, `CAP1`, `CAP2`). Bedömningen kräver minst 2 dagar med spend och 5 ordrar.
+
+Datan ligger i `scale` i sidans JSON: de senaste 8 dagarna per kampanj och annons från Juicy (spend, omsättning, vinst, ordrar) och `meta_budgets()` i `build.py`, som läser budget nu, spend per dag och budgetändringar de senaste 14 dagarna direkt från Meta (bara läsning, samma nyckel som surf). Klick på ett land visar budget dag för dag, testade nivåer och annonserna. Längst ner jämförs Juicys spend med Metas. Varumärke och produkt läses ur kampanjnamnet (`LAND//BUTIK//PRODUKT/datum`).
+
 ## Per produkt och COGS
 Butiker i `PRODUCT_STORES` (nu Homelyst) visas även per produkt och land. Produkten läses ur kampanjnamnet (`LAND//BUTIK//PRODUKT/datum`), vinsten är Juicys vinst efter annonskostnad per annons. Tabellen "Per butik" har en COGS-kolumn som blir röd om en butik har sålt utan COGS.
 

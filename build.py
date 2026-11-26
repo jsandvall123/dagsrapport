@@ -120,6 +120,68 @@ def riksbank(series, start, end):
     raise RuntimeError(f"Riksbanken svarar inte ({series})")
 
 
+def meta_budgets(token, days):
+    """Budget nu, spend per dag och budgetändringar (14 dagar) per kampanj, direkt från Meta. Bara läsning."""
+    import surf
+    tz = ZoneInfo("Europe/Stockholm")
+
+    def get(path, **params):
+        params["access_token"] = token
+        url, out = f"{surf.GRAPH}/{path}?" + urllib.parse.urlencode(params), []
+        while url:
+            try:
+                r = json.load(urllib.request.urlopen(url, timeout=90))
+            except urllib.error.HTTPError as e:
+                raise RuntimeError(f"Meta {e.code}: {e.read()[:200].decode(errors='replace')}")
+            out += r.get("data", [])
+            url = r.get("paging", {}).get("next")
+        return out
+
+    camps = get(f"{surf.AD_ACCOUNT}/campaigns", limit=200,
+                fields="name,effective_status,daily_budget,adsets.limit(100){effective_status,daily_budget}",
+                filtering=json.dumps([{"field": "effective_status", "operator": "IN", "value": ["ACTIVE", "PAUSED", "ARCHIVED", "IN_PROCESS", "WITH_ISSUES"]}]))
+    byid = {}
+    for c in camps:
+        sets = c.get("adsets", {}).get("data", [])
+        cbo = bool(c.get("daily_budget"))
+        budget = int(c["daily_budget"]) / 100 if cbo else sum(int(a["daily_budget"]) / 100 for a in sets
+                                                              if a.get("daily_budget") and a["effective_status"] == "ACTIVE")
+        byid[c["id"]] = {"id": c["id"], "name": c["name"], "st": c["effective_status"], "B": budget, "cbo": cbo, "MS": [0] * len(days), "ev": []}
+    for r in get(f"{surf.AD_ACCOUNT}/insights", level="campaign", fields="campaign_id,spend", time_increment=1, limit=500,
+                 time_range=json.dumps({"since": days[0], "until": days[-1]})):
+        m = byid.get(r["campaign_id"])
+        if m and r["date_start"] in days:
+            m["MS"][days.index(r["date_start"])] = round(float(r["spend"]))
+    since = int((dt.datetime.now(tz) - dt.timedelta(days=14)).timestamp())
+    for a in get(f"{surf.AD_ACCOUNT}/activities", fields="event_type,event_time,object_id,extra_data,actor_name", since=since, limit=500):
+        if a.get("event_type") != "update_campaign_budget" or a.get("object_id") not in byid:
+            continue
+        try:
+            x = json.loads(a.get("extra_data") or "{}")
+            old, new = x["old_value"]["old_value"] / 100, x["new_value"]["new_value"] / 100
+            when = dt.datetime.fromisoformat(a["event_time"][:19] + "+00:00").astimezone(tz)
+        except Exception:
+            continue
+        who = a.get("actor_name") or "?"
+        byid[a["object_id"]]["ev"].append({"t": when, "old": old, "new": new, "by": "Automatiken" if "dagsrapport" in who else who.split()[0]})
+    out = {}
+    for m in byid.values():
+        ev = sorted(m["ev"], key=lambda e: e["t"])
+        bd = [None] * len(days)
+        if m["cbo"]:  # budget per dag = högsta budget som gällde under dagen
+            def at(t):
+                before = [e for e in ev if e["t"] <= t]
+                return before[-1]["new"] if before else (ev[0]["old"] if ev else m["B"])
+            for i, day in enumerate(days):
+                a0 = dt.datetime.fromisoformat(day).replace(tzinfo=tz)
+                bd[i] = max([at(a0)] + [e["new"] for e in ev if a0 < e["t"] < a0 + dt.timedelta(days=1)])
+        fmt = lambda e: {"t": e["t"].strftime("%Y-%m-%d %H:%M"), "old": e["old"], "new": e["new"], "by": e["by"]}
+        out[m["name"]] = {"id": m["id"], "st": m["st"], "B": m["B"], "MS": m["MS"], "BD": bd,
+                          "H": [fmt(e) for e in ev][-40:] if m["cbo"] else [],
+                          "since": fmt(ev[-1])["t"] if m["cbo"] and ev else None}
+    return out
+
+
 def span_label(a, b):
     """'fre 13 nov' för en dag, '6–9 nov' / '28 okt–3 nov' för flera."""
     if a == b:
@@ -152,7 +214,9 @@ def main():
     N = len(days)
     ix = lambda d: (d - first).days
     upto = lambda d: N - 2 if d < today else N - 1  # t.o.m. igår, eller bara idag den första
-    periods = {"Idag": (N - 1, N - 1), "Igår": (N - 2, N - 2), "4 dagar": (N - 5, N - 2), "7 dagar": (N - 8, N - 2),
+    monday = today - dt.timedelta(days=today.weekday())
+    periods = {"Idag": (N - 1, N - 1), "Igår": (N - 2, N - 2), "3 dagar": (N - 4, N - 2), "4 dagar": (N - 5, N - 2),
+               "7 dagar": (N - 8, N - 2), "Denna vecka": (ix(monday), upto(monday)),
                "Denna månad": (ix(m_this), upto(m_this)), "Förra månaden": (ix(m_prev), ix(m_prev_end)),
                "I år": (ix(jan1), upto(jan1))}
     SHORT = 8  # annonser hämtas per dag för de sista 8 dagarna; längre perioder hämtas summerat
@@ -178,7 +242,7 @@ def main():
         obs = riksbank(series, start, iso[-1])
         rates[cur] = [[v for d, v in obs if d <= day][-1] for day in iso]
 
-    stores = {}
+    stores, scale_stores = {}, {}
     for code, name in STORES:
         if code not in tokens:
             continue
@@ -226,6 +290,22 @@ def main():
                     t = cl.setdefault(x.get("campaignName") or "?", [0.0, 0.0, 0.0])
                     t[0] += x["adSpend"] * k; t[1] += x["netRevenueV2"] * k; t[2] += x["profitAfterAdSpend"] * k
                 campsL[per] = {n: [round(v) for v in t] for n, t in cl.items()}
+            # skalvyn: sista 8 dagarna per kampanj och annons, med ordrar
+            sc = {"name": name, "R": row("netRevenue")[off:], "S": row("totalAdSpend")[off:], "P": row("netProfit")[off:],
+                  "O": [round(byday.get(d, {}).get("orders", 0) or 0) for d in iso[off:]], "camps": {}}
+            blank = lambda: {"S": [0.0] * SHORT, "R": [0.0] * SHORT, "P": [0.0] * SHORT, "O": [0.0] * SHORT}
+            for i, ads in enumerate(daily):
+                for x in ads:
+                    if not x["adSpend"] and not x["netRevenueV2"]:
+                        continue
+                    c = sc["camps"].setdefault(x.get("campaignName") or "?", dict(blank(), ads={}))
+                    a = c["ads"].setdefault(x["name"], blank())
+                    for tt in (c, a):
+                        tt["S"][i] += x["adSpend"] * rs[i]; tt["R"][i] += x["netRevenueV2"] * rs[i]
+                        tt["P"][i] += x["profitAfterAdSpend"] * rs[i]; tt["O"][i] += x.get("ordersFloat") or 0
+            rnd = lambda o: {k: (rnd(v) if isinstance(v, dict) else [round(n, 1) if k == "O" else round(n) for n in v]) for k, v in o.items()}
+            sc["camps"] = {n: rnd(c) for n, c in sc["camps"].items()}
+            scale_stores[code] = sc
             stores[code] = {"name": name, "cur": cur, "R": row("netRevenue"), "S": row("totalAdSpend"), "P": row("netProfit"),
                             "C": row("cogs"), "top": top, "camps": camps, "campsL": campsL}
             if code in PRODUCT_STORES:  # per produkt och land (Juicys vinst efter annonskostnad per annons)
@@ -267,9 +347,18 @@ def main():
         except Exception as e:
             errors.append(f"Surf-scaling: {e}")
 
+    scale_meta = {}
+    if os.environ.get("META_BUDGET_TOKEN"):
+        try:
+            scale_meta = meta_budgets(os.environ["META_BUDGET_TOKEN"].strip(), iso[N - SHORT:])
+        except Exception as e:
+            errors.append(f"Meta-budgetar: {e}")
+
     data = {
+        "scale": {"days": iso[N - SHORT:], "stores": scale_stores, "meta": scale_meta},
         "surf": surf_data,
         "generated": now.strftime("%Y-%m-%d %H:%M"),
+        "first": iso[0],
         "labels": [f"{DAYS_SV[d.weekday()]} {d.day}" for d in days],
         "mon": [d.month - 1 for d in days],
         "short": SHORT,
