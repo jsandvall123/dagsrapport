@@ -126,6 +126,7 @@ tr.dt td{background:var(--bg)}tr.ld:hover td{background:color-mix(in srgb,var(--
 .sc h2{margin-bottom:12px}
 .bud{display:inline-flex;align-items:center;gap:8px;margin-right:14px;vertical-align:middle}
 .bud select,.bud button{font:inherit;font-size:13px;font-weight:600;border:0;border-radius:8px;padding:6px 12px;background:var(--surface);color:var(--text);box-shadow:0 0 0 1px var(--border);cursor:pointer}
+.bud button[disabled]{opacity:.4;cursor:default}
 .bud button.go{background:var(--ok);color:#fff;box-shadow:none}
 td.bcell{cursor:pointer}
 td.bcell .b{display:inline-block;padding:5px 10px;border-radius:8px;background:var(--seg);transition:transform .1s ease-out}
@@ -407,7 +408,8 @@ function ctrl(r){
   if(s.msg)return `<span class="bud"><b>${esc(s.msg)}</b></span>`;
   if(s.dir){const nb=Math.max(50,Math.round(M.B*(1+s.dir*s.pct/100)/10)*10),over=s.dir>0&&nb>CAP2;
     return `<span class="bud" data-id="${M.id}"><b>${kr(M.B)} → ${kr(nb)}</b>${over?'<span class="neg">Max '+kr(CAP2)+'</span>':'<button data-act="go" class="go">Confirm</button>'}<button data-act="cancel">Cancel</button></span>`}
-  return `<span class="bud" data-id="${M.id}"><select data-act="pct" aria-label="Percent">${[10,20,30,40,50,60,70,80,90,100].map(p=>`<option value="${p}"${p===s.pct?' selected':''}>${p} %</option>`).join('')}</select><button data-act="down">Lower</button><button data-act="up">Raise</button></span>`;
+  const nb=d=>Math.max(50,Math.round(M.B*(1+d*Math.min(s.pct,d<0?90:100)/100)/10)*10),up=nb(1),dn=nb(-1);
+  return `<span class="bud" data-id="${M.id}"><select data-act="pct" aria-label="Percent">${[10,20,30,40,50,60,70,80,90,100].map(p=>`<option value="${p}"${p===s.pct?' selected':''}>${p} % · ${kr(M.B*p/100)}</option>`).join('')}</select><button data-act="down">Lower to ${kr(dn)}</button><button data-act="up"${up>CAP2?' disabled title="Max '+kr(CAP2)+'"':''}>Raise to ${kr(up)}</button></span>`;
 }
 async function send(id){
   const s=BUD[id],r=rows.find(x=>x.M&&x.M.id===id);s.msg='Sending…';render();
@@ -508,7 +510,7 @@ SC.addEventListener('click',e=>{
   if(e.target.closest('.bud'))return;
   const c=e.target.closest('td.bcell');if(c){openL[c.dataset.id]=!openL[c.dataset.id];render()}
 });
-SC.addEventListener('change',e=>{const s=e.target.closest('.bud select');if(s)BUD[s.closest('.bud').dataset.id].pct=+s.value});
+SC.addEventListener('change',e=>{const s=e.target.closest('.bud select');if(s){BUD[s.closest('.bud').dataset.id].pct=+s.value;render()}});
 window.scaleRender=render;window.render();
 })();
 
