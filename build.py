@@ -358,6 +358,18 @@ def main():
         except Exception as e:
             errors.append(f"Meta budgets: {e}")
 
+    # budgetknapparna: testa nyckeln mot GitHub. Fungerar den inte visas inga knappar, och det noteras längst ner.
+    dispatch, dtok = None, os.environ.get("PAGE_DISPATCH_TOKEN", "").strip()
+    if dtok:
+        try:
+            req = urllib.request.Request("https://api.github.com/repos/jsandvall123/dagsrapport/actions/workflows/budget.yml",
+                                         headers={"Authorization": "Bearer " + dtok, "Accept": "application/vnd.github+json"})
+            urllib.request.urlopen(req, timeout=30)
+            dispatch = {"repo": "jsandvall123/dagsrapport", "token": dtok}
+            print("Budgetknappar: nyckeln fungerar")
+        except Exception as e:
+            warnings.append(f"Budget buttons are off: the key was not accepted by GitHub ({e})")
+
     data = {
         "scale": {"days": iso[N - SHORT:], "stores": scale_stores, "meta": scale_meta},
         "surf": surf_data,
@@ -376,7 +388,7 @@ def main():
         "errors": errors,
         "warnings": warnings,
         # nyckel som låter knapparna i sidan starta budget.yml (bara Actions på detta repo). Sidan är lösenordskrypterad.
-        "dispatch": {"repo": "jsandvall123/dagsrapport", "token": os.environ["PAGE_DISPATCH_TOKEN"].strip()} if os.environ.get("PAGE_DISPATCH_TOKEN", "").strip() else None,
+        "dispatch": dispatch,
     }
     html = open(os.path.join(HERE, "template.html"), encoding="utf-8").read()
     html = html.replace("/*DATA*/null", json.dumps(data, ensure_ascii=False, separators=(",", ":")))
