@@ -124,6 +124,8 @@ tr.dt td{background:var(--bg)}tr.ld:hover td{background:color-mix(in srgb,var(--
 .wrap th[data-c]{cursor:pointer;user-select:none}.wrap th[data-c]:hover{color:var(--text)}
 .sc h2 small{font-size:13px;font-weight:500;color:var(--muted);letter-spacing:0;margin-left:8px}
 .sc h2{margin-bottom:12px}
+.bw{display:inline-flex;align-items:center;gap:10px}
+.bh{display:inline-flex;flex-direction:column;gap:1px;text-align:left;font-size:12px;line-height:1.35;color:var(--muted);min-width:150px}
 .bud{display:inline-flex;align-items:center;gap:8px;margin-right:14px;vertical-align:middle}
 .bud select,.bud button{font:inherit;font-size:13px;font-weight:600;border:0;border-radius:8px;padding:6px 12px;background:var(--surface);color:var(--text);box-shadow:0 0 0 1px var(--border);cursor:pointer}
 .bud button[disabled]{opacity:.4;cursor:default}
@@ -383,6 +385,14 @@ function since(r){
   const h=r.M.H[r.M.H.length-1],up=h.new>h.old;
   return `<span class="small" title="${up?'Raised':'Lowered'} from ${n0(h.old)} kr ${r.M.since} by ${esc(h.by)}"><span class="${up?'pos':'neg'}">${up?'↑':'↓'}</span> ${dd===0?'today':dd===1?'yesterday':dd+' d'}</span>`;
 }
+const MSH=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+function hist(r){
+  const M=r.M;if(!M)return '';
+  const H=(M.H||[]).slice(-2).reverse();
+  if(!H.length)return `<span class="bh"><span>${since(r)}</span></span>`;
+  const when=t=>{const d=t.slice(0,10),hm=t.slice(11);return (d===D.days[T]?'today':d===D.days[T-1]?'yesterday':(+d.slice(8))+' '+MSH[+d.slice(5,7)-1])+' '+hm};
+  return '<span class="bh">'+H.map(h=>`<span title="${esc(h.by)}"><span class="${h.new>h.old?'pos':'neg'}">${h.new>h.old?'↑':'↓'}</span> ${n0(h.old)} → ${n0(h.new)} · ${when(h.t)}</span>`).join('')+'</span>';
+}
 function budget(r){return r.M?(r.M.st==='ACTIVE'?kr(r.M.B):`<span class="dim">${r.M.st==='ARCHIVED'?'archived':'paused'}</span>`):'<span class="dim">–</span>'}
 function label(r){return `<span class="b">${esc(r.prod)}</span> · ${esc(r.land)}<span class="tag">${esc(r.store)}</span>${r.age!==null&&r.age<=3?`<span class="tag">new, ${r.age} d</span>`:''}`}
 const dm=(r,i)=>{const x=mg(r.P[i],r.R[i],r.S[i]);return x===null?-99:x};
@@ -399,7 +409,7 @@ function drawList(id,items,ix,empty){
 }
 function line(r,ix){
   const a=agg([r],ix),m=mg(a.P,a.R,a.S),v=verdict(r,ix);
-  return `<tr><td class="nm" title="${esc(r.name)}">${label(r)}</td><td${r.M&&r.M.st==='ACTIVE'&&DATA.dispatch?` class="bcell${openL[r.M.id]?' open':''}" data-id="${r.M.id}" title="Change budget"`:''}><span class="b">${budget(r)}</span> ${since(r)}</td><td>${bars(r)}</td><td>${kr(a.S)}</td><td>${num(a.O)}</td><td>${kr(a.R)}</td><td>${a.S?(a.R/a.S).toFixed(2).replace('.',','):'–'}</td><td class="${a.P>=0?'pos':'neg'}">${kr(a.P)}</td><td class="b ${tcl(m)}">${pct(m)}</td><td>${pills(r,ix)}</td><td>${today(r)}</td><td><span class="vd ${v[0]}" title="${v[2]}">${v[1]}</span></td></tr>`;
+  return `<tr><td class="nm" title="${esc(r.name)}">${label(r)}</td><td${r.M&&r.M.st==='ACTIVE'&&DATA.dispatch?` class="bcell${openL[r.M.id]?' open':''}" data-id="${r.M.id}" title="Change budget"`:''}><span class="bw"><span class="b">${budget(r)}</span>${hist(r)}</span></td><td>${bars(r)}</td><td>${kr(a.S)}</td><td>${num(a.O)}</td><td>${kr(a.R)}</td><td>${a.S?(a.R/a.S).toFixed(2).replace('.',','):'–'}</td><td class="${a.P>=0?'pos':'neg'}">${kr(a.P)}</td><td class="b ${tcl(m)}">${pct(m)}</td><td>${pills(r,ix)}</td><td>${today(r)}</td><td><span class="vd ${v[0]}" title="${v[2]}">${v[1]}</span></td></tr>`;
 }
 const BUD={},openL={};
 function ctrl(r){
