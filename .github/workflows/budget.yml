@@ -1,0 +1,55 @@
+name: Budget
+
+# Startas av knapparna i Profit sheet. Ändrar dagsbudgeten på en kampanj i Meta (se budget.py för spärrarna)
+# och bygger sedan om sidan så att den nya budgeten syns.
+on:
+  workflow_dispatch:
+    inputs:
+      campaign_id:
+        description: Kampanjens id i Meta
+        required: true
+        type: string
+      percent:
+        description: "+10 … +100 eller -10 … -90"
+        required: true
+        type: string
+      expected:
+        description: Budgeten sidan visade (kr). Stämmer den inte görs ingenting.
+        required: false
+        type: string
+        default: ""
+      dry:
+        description: "true = räkna bara, ändra inget"
+        required: false
+        type: string
+        default: "false"
+
+permissions:
+  contents: read
+  actions: write
+
+concurrency:
+  group: budget
+  cancel-in-progress: false
+
+jobs:
+  budget:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Ändra budget
+        env:
+          META_BUDGET_TOKEN: ${{ secrets.META_BUDGET_TOKEN }}
+          CAMPAIGN_ID: ${{ inputs.campaign_id }}
+          PERCENT: ${{ inputs.percent }}
+          EXPECTED: ${{ inputs.expected }}
+          DRY: ${{ inputs.dry }}
+        run: python budget.py
+      - name: Bygg om sidan
+        if: inputs.dry != 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh workflow run daily.yml --ref main --repo "$GITHUB_REPOSITORY"

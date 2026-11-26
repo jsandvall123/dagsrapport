@@ -17,6 +17,13 @@ GitHubs eget schema startade aldrig (11–12 nov 2026), så rapporten väcks av 
 ## Språk och design (26 nov 2026)
 Sidan heter "Profit sheet" (repot och adressen heter fortfarande dagsrapport). Sidan är på engelska (perioder, rubriker, bedömningar). Automatikens loggtext skrivs fortfarande på svenska i `surf.py` och översätts när den visas (`TX` i `template.html`). Designen "ren premium" ligger sist i `<style>` i `template.html`, och sammanfattningskortet överst (`#hero`) ritas av det sista skriptet på sidan och följer skalvyns valda fönster. Tidigare designförslag finns i `mockup/design/` (publiceras inte).
 
+## Budgetknappar (sedan 26 nov 2026)
+I skalvyn går budgeten att ändra direkt: klicka på budgeten i en lista (eller öppna ett land under By brand), välj 10–100 %, Raise eller Lower, och bekräfta. Sidan startar då workflowen `budget.yml`, som kör `budget.py` och ändrar budgeten i Meta, och bygger sedan om sidan.
+
+Spärrar i `budget.py`: bara aktiva kampanjer i vårt annonskonto, bara hela tiotal (+10…+100, −10…−90), aldrig över 20 000 kr per dag (`TAK`), och inget händer om budgeten har ändrats sedan sidan byggdes. Surf-scalingen ser ändringen som en manuell ändring och utgår från den.
+
+Knapparna kräver secret `PAGE_DISPATCH_TOKEN`: en fine-grained GitHub-nyckel med bara Actions read/write på detta repo. Den bakas in i den lösenordskrypterade sidan. Saknas den visas inga knappar. Byt nyckeln om lösenordet till sidan kommit på avvägar.
+
 ## Skalvyn (sedan 26 nov 2026)
 Topplista, Ligg kvar och Läcklista per produkt och land, bedömt på 2 hela dagar (går att byta till igår, 3 eller 7). Johns regler: under 15 % vinst läcker, 15–20 % ligg kvar, 20 % på 2 dagar = höj 20–100 % upp till 10 000 kr/dag, över 25 % = skala hårt upp till 20 000 kr/dag. Gränserna står överst i skalvyns skript i `template.html` (`HOLD`, `UP`, `HARD`, `CAP1`, `CAP2`). Skalning (Scale / Scale hard) rekommenderas bara efter minst 20 % (25 %) vinst två hela dagar i rad och minst 5 ordrar. Antalet Scale up / Scale down visas i Summary. Listorna går att sortera på alla kolumner. Kampanjkontrollens rutor (rättade och nya kampanjer) ligger längst ner på sidan.
 

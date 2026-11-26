@@ -194,7 +194,7 @@ def main():
     dry = "--dry" in args
     if "--env" in args:  # lokal körning: läs nycklarna ur .secrets-filen
         for line in open(args[args.index("--env") + 1], encoding="utf-8"):
-            if line.startswith(("JUICY_", "META_")) and "=" in line:
+            if line.startswith(("JUICY_", "META_", "PAGE_")) and "=" in line:
                 k, v = line.strip().split("=", 1)
                 os.environ.setdefault(k, v)
     tokens = {c: os.environ[f"JUICY_{c}_TOKEN"] for c, _ in STORES if os.environ.get(f"JUICY_{c}_TOKEN")}
@@ -375,6 +375,8 @@ def main():
         "missing": [n for c, n in STORES if c in missing],
         "errors": errors,
         "warnings": warnings,
+        # nyckel som låter knapparna i sidan starta budget.yml (bara Actions på detta repo). Sidan är lösenordskrypterad.
+        "dispatch": {"repo": "jsandvall123/dagsrapport", "token": os.environ["PAGE_DISPATCH_TOKEN"].strip()} if os.environ.get("PAGE_DISPATCH_TOKEN", "").strip() else None,
     }
     html = open(os.path.join(HERE, "template.html"), encoding="utf-8").read()
     html = html.replace("/*DATA*/null", json.dumps(data, ensure_ascii=False, separators=(",", ":")))

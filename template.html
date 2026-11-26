@@ -124,6 +124,10 @@ tr.dt td{background:var(--bg)}tr.ld:hover td{background:color-mix(in srgb,var(--
 .wrap th[data-c]{cursor:pointer;user-select:none}.wrap th[data-c]:hover{color:var(--text)}
 .sc h2 small{font-size:13px;font-weight:500;color:var(--muted);letter-spacing:0;margin-left:8px}
 .sc h2{margin-bottom:12px}
+.bud{display:inline-flex;align-items:center;gap:8px;margin-right:14px;vertical-align:middle}
+.bud select,.bud button{font:inherit;font-size:13px;font-weight:600;border:0;border-radius:8px;padding:6px 12px;background:var(--surface);color:var(--text);box-shadow:0 0 0 1px var(--border);cursor:pointer}
+.bud button.go{background:var(--ok);color:#fff;box-shadow:none}
+td.bcell{cursor:pointer}td.bcell:hover .b{text-decoration:underline}
 </style>
 </head>
 <body>
@@ -385,16 +389,31 @@ function drawList(id,items,ix,empty){
   items.forEach(x=>x.v=verdict(x.r,ix));
   items.sort((x,y)=>{const a=key(x),b=key(y);return (a<b?-1:a>b?1:0)*so.d||y.a.S-x.a.S});
   const el=document.getElementById('sc-'+id);
-  el.innerHTML='<thead><tr>'+COLS.map((c,i)=>`<th data-c="${i}" title="Sort">${c[0]}${so.c===i?(so.d<0?' ↓':' ↑'):''}</th>`).join('')+'</tr></thead><tbody>'+(items.map(x=>line(x.r,ix)).join('')||`<tr><td colspan="12" class="dim">${empty}</td></tr>`)+'</tbody>';
+  el.innerHTML='<thead><tr>'+COLS.map((c,i)=>`<th data-c="${i}" title="Sort">${c[0]}${so.c===i?(so.d<0?' ↓':' ↑'):''}</th>`).join('')+'</tr></thead><tbody>'+(items.map(x=>line(x.r,ix)+(x.r.M&&openL[x.r.M.id]&&ctrl(x.r)?`<tr class="dt"><td colspan="12">${ctrl(x.r)}</td></tr>`:'')).join('')||`<tr><td colspan="12" class="dim">${empty}</td></tr>`)+'</tbody>';
   el.querySelectorAll('th[data-c]').forEach(th=>th.onclick=()=>{const c=+th.dataset.c;SORT[id]=so.c===c?{c,d:-so.d}:{c,d:c===0?1:-1};render()});
 }
 function line(r,ix){
   const a=agg([r],ix),m=mg(a.P,a.R,a.S),v=verdict(r,ix);
-  return `<tr><td class="nm" title="${esc(r.name)}">${label(r)}</td><td><span class="b">${budget(r)}</span> ${since(r)}</td><td>${bars(r)}</td><td>${kr(a.S)}</td><td>${num(a.O)}</td><td>${kr(a.R)}</td><td>${a.S?(a.R/a.S).toFixed(2).replace('.',','):'–'}</td><td class="${a.P>=0?'pos':'neg'}">${kr(a.P)}</td><td class="b ${tcl(m)}">${pct(m)}</td><td>${pills(r,ix)}</td><td>${today(r)}</td><td><span class="vd ${v[0]}" title="${v[2]}">${v[1]}</span></td></tr>`;
+  return `<tr><td class="nm" title="${esc(r.name)}">${label(r)}</td><td${r.M&&r.M.st==='ACTIVE'&&DATA.dispatch?` class="bcell" data-id="${r.M.id}" title="Change budget"`:''}><span class="b">${budget(r)}</span> ${since(r)}</td><td>${bars(r)}</td><td>${kr(a.S)}</td><td>${num(a.O)}</td><td>${kr(a.R)}</td><td>${a.S?(a.R/a.S).toFixed(2).replace('.',','):'–'}</td><td class="${a.P>=0?'pos':'neg'}">${kr(a.P)}</td><td class="b ${tcl(m)}">${pct(m)}</td><td>${pills(r,ix)}</td><td>${today(r)}</td><td><span class="vd ${v[0]}" title="${v[2]}">${v[1]}</span></td></tr>`;
+}
+const BUD={},openL={};
+function ctrl(r){
+  const M=r.M;if(!M||M.st!=='ACTIVE'||!M.B||!DATA.dispatch)return '';
+  const s=BUD[M.id]||(BUD[M.id]={pct:20,dir:0});
+  if(s.msg)return `<span class="bud"><b>${esc(s.msg)}</b></span>`;
+  if(s.dir){const nb=Math.max(50,Math.round(M.B*(1+s.dir*s.pct/100)/10)*10),over=s.dir>0&&nb>CAP2;
+    return `<span class="bud" data-id="${M.id}"><b>${kr(M.B)} → ${kr(nb)}</b>${over?'<span class="neg">Max '+kr(CAP2)+'</span>':'<button data-act="go" class="go">Confirm</button>'}<button data-act="cancel">Cancel</button></span>`}
+  return `<span class="bud" data-id="${M.id}"><select data-act="pct" aria-label="Percent">${[10,20,30,40,50,60,70,80,90,100].map(p=>`<option value="${p}"${p===s.pct?' selected':''}>${p} %</option>`).join('')}</select><button data-act="down">Lower</button><button data-act="up">Raise</button></span>`;
+}
+async function send(id){
+  const s=BUD[id],r=rows.find(x=>x.M&&x.M.id===id);s.msg='Sending…';render();
+  try{const res=await fetch('https://api.github.com/repos/'+DATA.dispatch.repo+'/actions/workflows/budget.yml/dispatches',{method:'POST',headers:{'Authorization':'Bearer '+DATA.dispatch.token,'Accept':'application/vnd.github+json','Content-Type':'application/json'},body:JSON.stringify({ref:'main',inputs:{campaign_id:id,percent:String(s.dir*s.pct),expected:String(r.M.B)}})});
+    s.msg=res.status===204?'Sent. The new budget shows here in a few minutes.':'Could not send ('+res.status+')'}catch(e){s.msg='Could not send'}
+  render();
 }
 function detail(r){
   let h='';const M=r.M;
-  if(M&&M.id)h+=`<tr class="dt"><td colspan="10"><a class="btn" target="_blank" rel="noopener" href="https://adsmanager.facebook.com/adsmanager/manage/campaigns?act=${ACT}&selected_campaign_ids=${M.id}">Open in Meta</a><span class="small">${esc(r.name)}${M.st==='ACTIVE'?' · budget '+kr(M.B):' · paused'}</span></td></tr>`;
+  if(M&&M.id)h+=`<tr class="dt"><td colspan="10">${ctrl(r)}<a class="btn" target="_blank" rel="noopener" href="https://adsmanager.facebook.com/adsmanager/manage/campaigns?act=${ACT}&selected_campaign_ids=${M.id}">Open in Meta</a><span class="small">${esc(r.name)}${M.st==='ACTIVE'?' · budget '+kr(M.B):' · paused'}</span></td></tr>`;
   h+=`<tr class="dt hd"><td>Day by day</td><td>Budget (highest)</td><td>Spend</td><td>Orders</td><td>Rev.</td><td>Profit</td><td>Profit %</td><td colspan="3" style="text-align:left;padding-left:14px">Budget changes</td></tr>`;
   for(let i=T;i>=0;i--){
     const m=mg(r.P[i],r.R[i],r.S[i]);
@@ -476,6 +495,16 @@ function render(){
   document.getElementById('sc-bb').innerHTML=['All'].concat(BORDER).map(n=>`<button class="${n===brand?'on':''}" data-b="${n}">${n}</button>`).join(' ');
   document.querySelectorAll('#sc-bb button').forEach(b=>b.onclick=()=>{brand=b.dataset.b;render()});
 }
+const SC=document.getElementById('scale');
+SC.addEventListener('click',e=>{
+  const b=e.target.closest('.bud button');
+  if(b){e.stopPropagation();const id=b.closest('.bud').dataset.id,s=BUD[id],a=b.dataset.act;
+    if(a==='up')s.dir=1;else if(a==='down'){s.dir=-1;s.pct=Math.min(s.pct,90)}else if(a==='cancel')s.dir=0;else if(a==='go'){send(id);return}
+    render();return}
+  if(e.target.closest('.bud'))return;
+  const c=e.target.closest('td.bcell');if(c){openL[c.dataset.id]=!openL[c.dataset.id];render()}
+});
+SC.addEventListener('change',e=>{const s=e.target.closest('.bud select');if(s)BUD[s.closest('.bud').dataset.id].pct=+s.value});
 window.scaleRender=render;window.render();
 })();
 
