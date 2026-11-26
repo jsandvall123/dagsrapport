@@ -215,7 +215,7 @@ def main():
     ix = lambda d: (d - first).days
     upto = lambda d: N - 2 if d < today else N - 1  # t.o.m. igår, eller bara idag den första
     monday = today - dt.timedelta(days=today.weekday())
-    periods = {"Today": (N - 1, N - 1), "Yesterday": (N - 2, N - 2), "3 days": (N - 4, N - 2), "4 days": (N - 5, N - 2),
+    periods = {"Today": (N - 1, N - 1), "Yesterday": (N - 2, N - 2), "2 days": (N - 3, N - 2), "3 days": (N - 4, N - 2), "4 days": (N - 5, N - 2),
                "7 days": (N - 8, N - 2), "This week": (ix(monday), upto(monday)),
                "This month": (ix(m_this), upto(m_this)), "Last month": (ix(m_prev), ix(m_prev_end)),
                "This year": (ix(jan1), upto(jan1))}

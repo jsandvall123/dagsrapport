@@ -4,7 +4,8 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="robots" content="noindex, nofollow">
-<title>Dagsrapport</title>
+<title>Profit sheet</title>
+<link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='15' fill='%231c1c1e'/%3E%3Cpath d='M21 43 43 21M26 21h17v17' fill='none' stroke='%2330d158' stroke-width='7' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E">
 <style>
 :root{--bg:#ffffff;--surface:#f6f5f2;--text:#0b0b0b;--text2:#52514e;--muted:#898781;--border:rgba(11,11,11,.10);--strong:rgba(11,11,11,.35);--ok:#0f7a4f;--bad:#c23b3a;--warn-bg:#fdf3dc;--warn:#7a5208;--bad-bg:#fbeaea}
 @media (prefers-color-scheme: dark){:root{--bg:#141413;--surface:#1f1f1d;--text:#f0efec;--text2:#c3c2b7;--muted:#898781;--border:rgba(255,255,255,.10);--strong:rgba(255,255,255,.35);--ok:#3ccf91;--bad:#ff7b7a;--warn-bg:#3a2e14;--warn:#f3c76b;--bad-bg:#3b1d1d}}
@@ -77,8 +78,8 @@ main{max-width:1120px;padding:44px 24px 96px}
 h1{font-size:34px;font-weight:700;letter-spacing:-.022em;line-height:1.1}
 .meta{font-size:13px;margin:6px 0 22px}
 /* segmenterade reglage */
-#st,#tb,#sc-wb,#sc-bb{display:inline-flex;flex-wrap:nowrap;gap:2px;padding:2px;background:var(--seg);border-radius:10px;max-width:100%;overflow-x:auto;scrollbar-width:none;margin:0 0 10px;vertical-align:middle}
-#st::-webkit-scrollbar,#tb::-webkit-scrollbar,#sc-wb::-webkit-scrollbar,#sc-bb::-webkit-scrollbar{display:none}
+#st,#tb,#sc-bb{display:inline-flex;flex-wrap:nowrap;gap:2px;padding:2px;background:var(--seg);border-radius:10px;max-width:100%;overflow-x:auto;scrollbar-width:none;margin:0 0 10px;vertical-align:middle}
+#st::-webkit-scrollbar,#tb::-webkit-scrollbar,#sc-bb::-webkit-scrollbar{display:none}
 .row button{border:0;border-radius:8px;background:transparent;padding:6px 14px;font-size:13px;font-weight:500;white-space:nowrap;color:var(--text);transition:transform .1s ease-out}
 .row button:active{transform:scale(.97)}
 .row button.on{background:var(--surface);font-weight:600;box-shadow:0 3px 8px rgba(0,0,0,.12),0 0 0 .5px rgba(0,0,0,.04)}
@@ -114,38 +115,30 @@ tr.dt td{background:var(--bg)}tr.ld:hover td{background:color-mix(in srgb,var(--
 .btn{border-radius:999px;border:0;background:var(--blue);color:#fff;padding:6px 12px;font-weight:500}
 .bars i{border-radius:2px;background:var(--muted)}.bars i.t{background:var(--strong)}
 #pcus input{border-radius:9px;border:0;box-shadow:0 0 0 1px var(--border);background:var(--surface);font-size:14px}
-/* sammanfattningskort */
-#hero{background:var(--surface);border-radius:20px;padding:22px 24px 24px;margin:0 0 22px;display:grid;grid-template-columns:minmax(260px,5fr) 7fr;gap:8px 40px;align-items:center}
-#hero .lab{font-size:13px;color:var(--muted)}
-#hero .num{display:flex;align-items:baseline;gap:12px;margin-top:2px}
-#hero .big{font-size:44px;font-weight:700;letter-spacing:-.03em;line-height:1.1;font-variant-numeric:tabular-nums}
-#hero .chip{font-size:13px;font-weight:600;padding:4px 10px;border-radius:999px;transform:translateY(-6px)}
-#hero .chip.g{color:var(--ok);background:var(--ok-bg)}#hero .chip.a{color:var(--warn);background:var(--warn-bg)}#hero .chip.r{color:var(--bad);background:var(--bad-bg)}
-#hero .track{position:relative;display:grid;grid-template-columns:15fr 5fr 5fr 15fr;gap:3px;height:6px;margin:16px 0 0}
-#hero .track b{border-radius:3px;opacity:.85}
-#hero .dot{position:absolute;top:50%;width:14px;height:14px;margin:-7px 0 0 -7px;border-radius:50%;background:var(--surface);box-shadow:0 0 0 2.5px var(--text),0 2px 6px rgba(0,0,0,.25);left:var(--x);transition:left .7s cubic-bezier(.2,.9,.25,1)}
-#hero .marks{position:relative;height:18px;font-size:11px;color:var(--muted)}#hero .marks span{position:absolute;top:6px;transform:translateX(-50%)}
-#hero dl{display:grid;grid-template-columns:repeat(4,1fr);margin:0}
-#hero dl div{padding:4px 0 4px 20px;border-left:1px solid var(--border)}
-#hero dt{font-size:13px;color:var(--muted)}#hero dd{margin:2px 0 0;font-size:22px;font-weight:600;letter-spacing:-.02em;white-space:nowrap}
 @media (max-width:820px){#hero{grid-template-columns:1fr;gap:20px}#hero dl{grid-template-columns:repeat(2,1fr);gap:14px 0}#hero dl div:nth-child(odd){padding-left:0;border-left:0}h1{font-size:28px}main{padding:28px 16px 72px}}
 @media (prefers-reduced-motion:reduce){#hero .dot{transition:none}}
 @media (prefers-reduced-transparency:reduce){#tb{background:var(--bg);backdrop-filter:none;-webkit-backdrop-filter:none}}
+.kpis.k6{grid-template-columns:repeat(6,minmax(0,1fr))}
+@media (max-width:980px){.kpis.k6{grid-template-columns:repeat(3,minmax(0,1fr))}}
+@media (max-width:600px){.kpis.k6{grid-template-columns:repeat(2,minmax(0,1fr))}}
+.wrap th[data-c]{cursor:pointer;user-select:none}.wrap th[data-c]:hover{color:var(--text)}
+.sc h2 small{font-size:13px;font-weight:500;color:var(--muted);letter-spacing:0;margin-left:8px}
+.sc h2{margin-bottom:12px}
 </style>
 </head>
 <body>
 <main>
-<h1>Dagsrapport</h1>
+<h1>Profit sheet</h1>
 <p class="meta" id="meta"></p>
 <div id="alerts"></div>
 <div class="row" id="st"></div>
 <div class="row idle" id="st2"></div>
 <div class="row" id="tb"></div>
 <div class="row" id="pcus" style="display:none"><input type="date" id="pfrom"> – <input type="date" id="pto"></div>
-<p class="foot" id="pnote" style="display:none;margin:-4px 0 10px">Custom dates more than 8 days back show the store totals and the chart, not campaigns or products.</p>
+<p class="foot" id="pnote" style="display:none;margin:-4px 0 10px">Older than 8 days: totals only.</p>
 
 <p class="sec" id="sumh">Summary</p>
-<div class="kpis" id="sum"></div>
+<div class="kpis k6" id="sum"></div>
 
 <div class="lg"><span><i class="sq" style="background:rgba(136,135,128,.35)"></i><i class="ln" id="lgR"></i>Revenue</span><span><i class="sq" style="background:rgba(42,120,214,.35)"></i><i class="ln" style="border-color:#2a78d6"></i>Ad spend</span><span><i class="sq" style="background:#1baf7a"></i><i class="ln" style="border-color:#1baf7a"></i>Profit</span><span><i class="sq" style="background:#e34948"></i>Loss</span></div>
 <div class="chart"><canvas id="ch" role="img" aria-label="Revenue, ad spend and profit per day for the selected store and period"></canvas></div>
@@ -156,31 +149,22 @@ tr.dt td{background:var(--bg)}tr.ld:hover td{background:color-mix(in srgb,var(--
 <div id="daily"></div>
 <div id="scale" class="sc">
 <h2 style="margin-top:48px">Scale up or down</h2>
-<p class="sub" id="sc-meta"></p>
-<div class="row"><span class="lbl">Judge on</span><span id="sc-wb"></span><span class="lbl">full days. Today is shown alongside.</span></div>
-<div class="row"><span class="lbl">Brand</span><span id="sc-bb"></span></div>
+<div class="row"><span id="sc-bb"></span><span class="lbl" id="sc-meta"></span></div>
 <div class="kpis k5" id="sc-kpis"></div>
-<h2>Top list: scale up</h2>
-<p class="sub">At least 20 % profit over the period. 20–25 %: raise 20–100 % up to 10 000 kr/day. Above 25 %: scale harder, up to 15 000–20 000 kr/day. Hover over the verdict for a suggested new budget.</p>
+<h2>Top list <small>20 % and up</small></h2>
 <div class="wrap"><table id="sc-top"></table></div>
-<h2>Hold: 15–20 %</h2>
-<p class="sub">Around 15 % is not scaled. Hold or pull back a little.</p>
+<h2>Hold <small>15–20 %</small></h2>
 <div class="wrap"><table id="sc-hold"></table></div>
-<h2>Leak list: below 15 %</h2>
-<p class="sub">Sorted by how many kronor are missing to reach 15 %.</p>
+<h2>Leak list <small>under 15 %</small></h2>
 <div class="wrap"><table id="sc-leak"></table></div>
 <details id="sc-offd"><summary>Paused campaigns (<span id="sc-offn"></span>)</summary>
-<p class="sub">No longer active in Meta, but have numbers in the period. Not counted in the lists above.</p>
 <div class="wrap"><table id="sc-off"></table></div></details>
-<p class="legend">The boxes per day show profit % that day: green = at least 20 %, yellow = 0–20 %, red = negative. The bars show Meta spend per day for the last 7 days, light bar = today so far. The arrow after the budget shows the latest change: ↑ 3 d = raised 3 days ago, hover for details. Profit per campaign = Juicy profit after ad spend per ad.</p>
-<h2>Brand → product → country</h2>
-<p class="sub">Click a country to see the budget day by day, the levels you have tested and the ads.</p>
+<h2>By brand</h2>
 <div class="wrap"><table id="sc-tree"></table></div>
-<p class="legend">"Not tied to an ad" is the store's orders and costs that Juicy cannot link to an ad (direct traffic, email, returns, fixed costs).</p>
-<h2>Data check: Juicy vs Meta</h2>
-<p class="sub">Spend according to Juicy compared with spend according to Meta, per brand. Fetched in the same run.</p>
+<h2>Data check <small>Juicy vs Meta spend</small></h2>
 <div class="wrap"><table id="sc-chk" style="min-width:560px"></table></div>
 </div>
+<div id="syncnote" style="margin-top:48px"></div>
 <p class="foot" id="foot"></p>
 </main>
 
@@ -195,15 +179,15 @@ Object.keys(PER).forEach(p=>D.ALLA.top[p]=codes.flatMap(c=>D[c].top[p]).sort((a,
 const TX=[[/budgeten ändrad från/g,'budget changed from'],[/kr i Meta, ny originalbudget/g,'kr in Meta, new original budget'],[/ROAS mäts från/g,'ROAS measured from'],[/kontroll ([\d, ]+) hoppas över/g,'check $1 skipped'],[/kunde inte sänka/g,'could not lower'],[/kunde inte höja/g,'could not raise'],[/under break-even/g,'below break-even'],[/för lite data/g,'too little data'],[/sedan förra kontrollen/g,'since the last check'],[/under gränsen/g,'below the limit'],[/maxtaket/g,'max cap'],[/ nått/g,' reached'],[/mätning startar/g,'measurement starts'],[/manuell ändring/g,'manual change'],[/återställning/g,'reset'],[/återställ/g,'reset'],[/i morgon/g,'tomorrow'],[/Alla kampanjer/g,'All campaigns'],[/annonsuppsättning/g,'ad set'],[/kampanj \(CBO\)/g,'campaign (CBO)'],[/^höj/,'raise'],[/^sänk/,'lower'],[/^håll$/,'hold'],[/^fel$/,'error'],[/ sedan /g,' since '],[/^sedan /,'since '],[/ till /g,' to '],[/ men /g,' but '],[/ och /g,' and '],[/ på /g,' on ']];
 const tx=s=>TX.reduce((v,[a,b])=>v.replace(a,b),String(s==null?'':s));
 const esc=s=>String(s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
-document.getElementById('meta').textContent='Updated '+DATA.generated+' · refreshes every 15 minutes · all amounts in SEK from Juicy';
-let al='';
+document.getElementById('meta').textContent='Updated '+DATA.generated.slice(11);
+let al='',al2='';
 if(DATA.errors.length)al+=`<div class="box bad"><b>Something went wrong in the run</b><ul>${DATA.errors.map(e=>'<li>'+esc(e)+'</li>').join('')}</ul></div>`;
 if(DATA.missing.length)al+=`<div class="box warn">Missing Juicy key: ${esc(DATA.missing.join(', '))}</div>`;
-if(DATA.sync.changes.length)al+=`<details class="box warn"><summary><b>The campaign check corrected ${DATA.sync.changes.length} campaigns</b> · see which</summary><ul>${DATA.sync.changes.map(c=>`<li>${esc(NAME[c.store]||c.store)}: ${esc(c.campaign)} → ${esc(c.action)}</li>`).join('')}</ul></details>`;
-if(DATA.sync.new.length)al+=`<details class="box warn"><summary><b>${DATA.sync.new.length} new campaigns</b> · check that the store is right</summary><ul>${DATA.sync.new.map(c=>`<li>${esc(c.date)} · ${esc(c.name)} → ${esc(NAME[c.store]||c.store)}</li>`).join('')}</ul></details>`;
+if(DATA.sync.changes.length)al2+=`<details class="box warn"><summary><b>The campaign check corrected ${DATA.sync.changes.length} campaigns</b> · see which</summary><ul>${DATA.sync.changes.map(c=>`<li>${esc(NAME[c.store]||c.store)}: ${esc(c.campaign)} → ${esc(c.action)}</li>`).join('')}</ul></details>`;
+if(DATA.sync.new.length)al2+=`<details class="box warn"><summary><b>${DATA.sync.new.length} new campaigns</b> · check that the store is right</summary><ul>${DATA.sync.new.map(c=>`<li>${esc(c.date)} · ${esc(c.name)} → ${esc(NAME[c.store]||c.store)}</li>`).join('')}</ul></details>`;
 const noc=codes.filter(c=>D[c].C&&[L.length-2,L.length-1].some(i=>D[c].R[i]>0&&!D[c].C[i]));
 if(noc.length)al+=`<div class="box bad"><b>Sold without COGS yesterday or today:</b> ${esc(noc.map(c=>NAME[c]).join(', '))}. Check the product cost in Juicy.</div>`;
-document.getElementById('alerts').innerHTML=al;
+document.getElementById('alerts').innerHTML=al;document.getElementById('syncnote').innerHTML=al2;
 
 const dark=matchMedia('(prefers-color-scheme: dark)').matches;
 const g=dark?'#2c2c2a':'#e1e0d9',mu='#898781',ring=dark?'#141413':'#ffffff',blk=dark?'#f0efec':'#0b0b0b',GR='#1baf7a',RD='#e34948';
@@ -230,9 +214,9 @@ function setCus(a,b){
 {let c=null;try{c=JSON.parse(localStorage.getItem('cus'))}catch(e){}
  if(c&&c.length===2&&dIdx(c[0])>=0&&dIdx(c[1])>=0)setCus(dIdx(c[0]),dIdx(c[1]));else setCus(L.length-15,L.length-2)}
 pfrom.min=pto.min=DATA.first;pfrom.max=pto.max=dISO(L.length-1);
-let store='ALLA',per='Today',SS={k:'P',d:1};try{const x=JSON.parse(localStorage.getItem('splitSort'));if(x&&x.k)SS=x}catch(e){}
+let store='ALLA',per='2 days',SS={k:'P',d:1};try{const x=JSON.parse(localStorage.getItem('splitSort'));if(x&&x.k)SS=x}catch(e){}
 try{store=localStorage.getItem('store')||store;per=localStorage.getItem('per')||per}catch(e){}
-if(!D[store])store='ALLA';if(!PER[per])per='Today';
+if(!D[store])store='ALLA';if(!PER[per])per='2 days';
 const rng=x=>x.slice(PER[per].from,PER[per].to+1);
 // kampanjer och produkter per dag finns bara för de sista DATA.short dagarna (index 0 = L.length-DATA.short)
 const OFF=L.length-DATA.short,rs=x=>x.slice(PER[per].from-OFF,PER[per].to-OFF+1),sumS=x=>rs(x).reduce((q,w)=>q+w,0);
@@ -257,7 +241,7 @@ function renderCamps(){
   const ti=withToday?rows[0].d.length-1:-1;
   el.innerHTML='<p class="sec">By campaign · '+esc(PER[per].label)+'</p><table class="camps"><colgroup><col style="width:34%"><col><col class="hide-sm"><col><col><col style="width:22%"></colgroup><thead><tr><th>Campaign</th><th>Spend</th><th class="hide-sm">Rev.</th><th>ROAS</th><th>Profit</th><th>'+(one?'':'Profit per day')+'</th></tr></thead><tbody>'+
     rows.map(x=>`<tr><td title="${esc(x.n)}">${esc(x.n)}</td><td>${f(x.S)}</td><td class="hide-sm">${f(x.R)}</td><td>${ro(x.R,x.S)}</td><td class="${cls(x.P)}">${sg(x.P)}${f(x.P)}</td><td>${one?'':spark(x.d,ti)}</td></tr>`).join('')+
-    '</tbody></table><p class="dim" style="font-size:12px;margin:4px 0 0">Profit after ad spend per ad in Juicy (excluding fixed costs).'+(withToday?' Faded bar = today so far, not counted in the totals.':'')+'</p>';
+    '</tbody></table>';
 }
 function renderProd(){
   const el=document.getElementById('prod'),lg=PER[per].long,P0=D[store]&&D[store].products;
@@ -271,7 +255,7 @@ function renderProd(){
   const row=(name,t,sub)=>`<tr${sub?' class="dim"':''}><td style="${sub?'padding-left:18px':''}">${sub?esc(name):'<b>'+esc(name)+'</b>'}</td><td>${f(t.R)}</td><td>${f(t.S)}</td><td>${ro(t.R,t.S)}</td><td class="${cls(t.P)}">${sg(t.P)}${f(t.P)}</td></tr>`;
   let h='<p class="sec">By product · '+esc(PER[per].label)+'</p><table><colgroup><col style="width:34%"><col><col><col><col></colgroup><thead><tr><th>Product / country</th><th>Rev.</th><th>Spend</th><th>ROAS</th><th>Profit</th></tr></thead><tbody>';
   prods.forEach(([n,l,t])=>{h+=row(n,t,false);Object.entries(l).map(([k,x])=>[k,{R:sm(x.R),S:sm(x.S),P:sm(x.P)}]).filter(x=>x[1].S||x[1].R).sort((a,b)=>b[1].S-a[1].S).forEach(([k,x])=>h+=row(k,x,true))});
-  h+='</tbody></table><p class="dim" style="font-size:12px;margin:4px 0 0">Profit after ad spend per ad in Juicy. The sum does not exactly match the store profit (fixed costs and orders without an ad are not counted).</p>';
+  h+='</tbody></table>';
   if(!one)h+='<p class="sec">Profit per day by product</p><table><thead><tr><th>Product</th>'+rng(L).map(l=>'<th>'+esc(l)+'</th>').join('')+'</tr></thead><tbody>'+prods.map(([n,l,t])=>'<tr><td>'+esc(n)+'</td>'+t.d.map(v=>`<td class="${cls(v)}">${sg(v)}${f(v)}</td>`).join('')+'</tr>').join('')+'</tbody></table>';
   el.innerHTML=h;
 }
@@ -281,8 +265,8 @@ function renderSurf(){
   const ent=S.ent.filter(e=>e.store===store),log=S.log.filter(l=>l.store===store);
   const n2=x=>x!=null?x.toFixed(2).replace('.',','):'–';
   const dec=a=>a.startsWith('höj')?'pos':a==='fel'||a.startsWith('sänk')?'neg':a==='håll'?'':'dim';
-  el.innerHTML=`<p class="sec">Surf-scaling · ${S.test?'<b>TEST</b>, changes nothing in Meta':'<b class="pos">LIVE</b>, changes budgets in Meta'}</p>
-  <div class="box warn">Measured from ${esc(I.snap||'07')}. At 09, 12, 15, 18, 21: raise +50 % (+25 % once the budget is at least ${f(S.highFrom)} kr) if ROAS since then <i>and</i> since the last check ≥ <b>${n2(I.limit)}</b> (${String(S.margin).replace('.',',')} × break-even ${n2(I.be)}) and spend ≥ ${S.minSpend} kr. Lower −25 % (never below the original) if ROAS since the last check is below break-even. Cap ${S.maxMult} × original budget. Reset at 23:30. Next: <b>${esc(tx(S.next))}</b>.</div>
+  el.innerHTML=`<p class="sec">Auto-scaling · ${S.test?'<b>Test</b>':'<b class="pos">Live</b>'}</p>
+  <p class="sub" style="margin:0 0 10px" title="Measured from ${esc(I.snap||'07')}. At 09, 12, 15, 18, 21: raise +50 % (+25 % once the budget is at least ${f(S.highFrom)} kr) if ROAS since then and since the last check ≥ ${n2(I.limit)} (${String(S.margin).replace('.',',')} × break-even ${n2(I.be)}) and spend ≥ ${S.minSpend} kr. Lower −25 % (never below the original) if ROAS since the last check is below break-even. Cap ${S.maxMult} × original budget. Reset at 23:30. Next: ${esc(tx(S.next))}.">Next check <b>${esc(tx(S.next))}</b></p>
   <table><colgroup><col style="width:40%"><col class="hide-sm"><col><col><col></colgroup><thead><tr><th>Campaign / ad set</th><th class="hide-sm">Level</th><th>Original</th><th>${S.test?'Would be now':'Now'}</th><th>Raise / lower</th></tr></thead><tbody>${ent.length?ent.map(e=>`<tr><td title="${esc(e.name)}">${esc(e.name)}</td><td class="hide-sm dim">${esc(tx(e.level))}</td><td>${f(e.base)}${e.mult&&e.mult!==S.maxMult?' <span class="dim">(cap '+e.mult+'x)</span>':''}</td><td class="${e.steps?'pos':''}">${f(e.sim)}</td><td>${e.steps}${e.downs?' / <span class="neg">−'+e.downs+'</span>':''}</td></tr>`).join(''):'<tr><td colspan="5" class="dim">No active campaigns</td></tr>'}</tbody></table>
   <p class="sec">Decisions today</p>
   <table><colgroup><col style="width:12%"><col style="width:38%"><col style="width:16%"><col></colgroup><thead><tr><th>Time</th><th>Campaign</th><th>Decision</th><th>Why</th></tr></thead><tbody>${log.length?log.slice().reverse().map(l=>`<tr><td>${esc(l.t)}</td><td title="${esc(tx(l.name))}">${esc(tx(l.name))}</td><td class="${dec(l.act)}">${esc(tx(l.act))}</td><td class="dim" style="white-space:normal">${esc(tx(l.why))}</td></tr>`).join(''):'<tr><td colspan="4" class="dim">No checks yet today</td></tr>'}</tbody></table>`;
@@ -301,17 +285,18 @@ function render(){
   const r=sum(d.R),sp=sum(d.S),pr=sum(d.P);
   const days=(mo?monLabels().map((l,i)=>({l,R:byMonth(d.R)[i],S:byMonth(d.S)[i],P:byMonth(d.P)[i]})):rng(L).map((l,i)=>({l,R:rng(d.R)[i],S:rng(d.S)[i],P:pp[i]}))).reverse();
   document.getElementById('daily').innerHTML=one?'':'<p class="sec">Profit per '+(mo?'month':'day')+' · '+esc(NAME[store])+'</p><table><colgroup><col style="width:22%"><col><col><col><col><col class="hide-sm"></colgroup><thead><tr><th>'+(mo?'Month':'Day')+'</th><th>Rev.</th><th>Spend</th><th>ROAS</th><th>Profit</th><th class="hide-sm">Profit %</th></tr></thead><tbody>'+days.map(x=>`<tr><td>${esc(x.l)}</td><td>${f(x.R)}</td><td>${f(x.S)}</td><td>${ro(x.R,x.S)}</td><td class="${cls(x.P)}">${sg(x.P)}${f(x.P)}</td><td class="${cls(x.P)} hide-sm">${pc(x.P/x.R*100)}</td></tr>`).join('')+`<tr><td><b>Total</b></td><td><b>${f(r)}</b></td><td><b>${f(sp)}</b></td><td><b>${ro(r,sp)}</b></td><td class="${cls(pr)}"><b>${sg(pr)}${f(pr)}</b></td><td class="${cls(pr)} hide-sm"><b>${pc(pr/r*100)}</b></td></tr></tbody></table>`;
+  const sc=window.scaleCounts?window.scaleCounts(store==='ALLA'?null:NAME[store]):null;
   document.getElementById('sumh').textContent='Summary · '+NAME[store]+' · '+PER[per].label;
-  document.getElementById('sum').innerHTML=`<div class="k"><p class="kl">Profit</p><p class="kv ${cls(pr)}">${sg(pr)}${f(pr)} kr</p><p class="ks">${pc(pr/r*100)} of revenue</p></div><div class="k"><p class="kl">Revenue</p><p class="kv">${f(r)}</p></div><div class="k"><p class="kl">Ad spend</p><p class="kv">${f(sp)}</p></div><div class="k"><p class="kl">ROAS</p><p class="kv">${ro(r,sp)}</p></div>`;
-  renderProd();renderCamps();renderSurf();
-  document.getElementById('foot').textContent='DKK, NOK and EUR converted at the Riksbank daily rate. Revenue = net revenue. Profit per ad = Juicy gross profit minus spend (before transaction fees). Ad names exactly as in Meta.';
+  document.getElementById('sum').innerHTML=`<div class="k"><p class="kl">Profit</p><p class="kv ${cls(pr)}">${sg(pr)}${f(pr)} kr</p><p class="ks">${pc(pr/r*100)} of revenue</p></div><div class="k"><p class="kl">Revenue</p><p class="kv">${f(r)}</p></div><div class="k"><p class="kl">Ad spend</p><p class="kv">${f(sp)}</p></div><div class="k"><p class="kl">ROAS</p><p class="kv">${ro(r,sp)}</p></div>`+(sc?`<div class="k"><p class="kl">Scale up</p><p class="kv pos">${sc.up}</p></div><div class="k"><p class="kl">Scale down</p><p class="kv neg">${sc.down}</p></div>`:'');
+  renderProd();renderCamps();renderSurf();if(window.scaleRender)window.scaleRender();
+  document.getElementById('foot').textContent='All amounts in SEK · Source: Juicy and Meta';
 }
 // aktiv = spend i dag eller i går; övriga i en dämpad rad under
 const st2=document.getElementById('st2'),active=c=>D[c].S[L.length-2]>0||D[c].S[L.length-1]>0;
 const btn=(k,el)=>{const b=document.createElement('button');b.textContent=NAME[k];b.dataset.k=k;b.onclick=()=>{store=k;render()};el.appendChild(b)};
 ['ALLA',...codes.filter(active)].forEach(k=>btn(k,st));
 const idle=codes.filter(c=>!active(c));
-if(idle.length){const l=document.createElement('span');l.className='idl';l.textContent='No spend today/yesterday:';st2.appendChild(l);idle.forEach(k=>btn(k,st2))}
+if(idle.length){const l=document.createElement('span');l.className='idl';l.textContent='Idle';st2.appendChild(l);idle.forEach(k=>btn(k,st2))}
 Object.keys(PER).filter(k=>k!==CUS).concat(CUS).forEach(k=>{const b=document.createElement('button');b.textContent=k;b.onclick=()=>{per=k;render()};tb.appendChild(b)});
 pfrom.onchange=pto.onchange=()=>{if(pfrom.value&&pto.value){setCus(dIdx(pfrom.value),dIdx(pto.value));render()}};
 render();
@@ -324,11 +309,13 @@ const T=7,HOLD=0.15,UP=0.20,HARD=0.25,CAP1=10000,CAP2=20000;
 const BRAND={SE:'Isella',DK:'Isella',NO:'Isella',FI:'Isella',DE:'Isella',HOMELYST:'Homelyst',HUSTOVALD:'Hus Tovald',JUNO:'Juno',EARLO:'Earlo'};
 const BORDER=['Isella','Homelyst','Hus Tovald','Earlo','Juno'];
 const DAYS=['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
-let win=2,brand='All',open={};try{const w=+localStorage.getItem('scWin');if([1,2,3,7].includes(w))win=w;const b=localStorage.getItem('scBrand');if(b==='All'||BORDER.includes(b))brand=b}catch(e){}
+let brand='All',open={};try{const b=localStorage.getItem('scBrand');if(b==='All'||BORDER.includes(b))brand=b}catch(e){}
 const n0=n=>(Math.round(n)||0).toLocaleString('sv-SE').replace(/ /g,' ');
 const kr=n=>n0(n)+' kr';
 const num=n=>(Math.round(n*10)/10).toLocaleString('sv-SE');
-const idx=()=>{const a=[];for(let i=T-win;i<T;i++)a.push(i);return a};
+// samma period som Summary. Kampanjdata finns bara per dag för de senaste 8 dagarna: längre perioder visar de 7 senaste hela dagarna
+const idx=()=>{const P=PER[per],off=L.length-8;let a=P.from-off,b=P.to-off;if(a<0||b<0||b>T){a=0;b=T-1}const o=[];for(let i=a;i<=b;i++)o.push(i);return o};
+const capped=()=>PER[per].from<L.length-8;
 const s=(arr,ix)=>ix.reduce((t,i)=>t+(arr[i]||0),0);
 const mg=(p,r,sp)=>r>0?p/r:(sp>0||p<0?-9:null);
 const cls=m=>m===null?'n':m>=UP?'g':m>=0?'a':'r';
@@ -362,14 +349,15 @@ function verdict(r,ix){
   const sp=s(r.S,ix),rv=s(r.R,ix),p=s(r.P,ix),o=s(r.O,ix),m=mg(p,rv,sp);
   if(r.M&&r.M.st!=='ACTIVE')return['n',r.M.st==='ARCHIVED'?'Archived':'Paused','The campaign is not active in Meta'];
   if(m===null||sp<=0)return['n','–',p<0?'Return, no spend in the period':'No spend in the period'];
-  const B=r.M?r.M.B:null,fresh=r.age!==null&&r.age<=3,days=r.S.slice(0,T).filter(v=>v>0).length;
+  const B=r.M?r.M.B:null,fresh=r.age!==null&&r.age<=3;
   if(m>=UP){
-    if(days<2)return['n','Wait','Promising, but only 1 day with spend'];
     if(o<5)return['n','Wait','Promising, but fewer than 5 orders'];
-    const hard=m>=HARD,cap=hard?CAP2:CAP1;
+    const two=[T-2,T-1].map(i=>mg(r.P[i],r.R[i],r.S[i])),ok=two.every(x=>x!==null&&x>=UP),hard=two.every(x=>x!==null&&x>=HARD);
+    if(!ok)return['n','Wait','Above 20 % in the period, but not at least 20 % two days in a row'];
+    const cap=hard?CAP2:CAP1;
     if(B!==null&&B>=cap)return['n','Hold','The budget has reached the cap of '+n0(cap)+' kr per day'];
     const tip=B===null?'':': '+n0(Math.min(cap,r100(B*(hard?2:1.2))))+'–'+n0(Math.min(cap,r100(B*(hard?3:2))))+' kr per day';
-    return hard?['g','Scale hard','Above 25 % profit'+tip]:['g','Scale','20–25 % profit, raise 20–100 %'+tip];
+    return hard?['g','Scale hard','At least 25 % profit two days in a row'+tip]:['g','Scale','At least 20 % profit two days in a row, raise 20–100 %'+tip];
   }
   if(m>=HOLD)return['n','Hold','15–20 % profit, not scaled'];
   if(o<5&&fresh)return['n','Wait','New test, too early to judge'];
@@ -387,10 +375,21 @@ function since(r){
 }
 function budget(r){return r.M?(r.M.st==='ACTIVE'?kr(r.M.B):`<span class="dim">${r.M.st==='ARCHIVED'?'archived':'paused'}</span>`):'<span class="dim">–</span>'}
 function label(r){return `<span class="b">${esc(r.prod)}</span> · ${esc(r.land)}<span class="tag">${esc(r.store)}</span>${r.age!==null&&r.age<=3?`<span class="tag">new, ${r.age} d</span>`:''}`}
-const HEAD=(extra)=>`<thead><tr><th>Product · country</th><th>Budget</th><th>Spend 7 d</th><th>Spend</th><th>Orders</th><th>Rev.</th><th>ROAS</th><th>Profit</th><th>Profit %</th>${extra}<th>Per day</th><th>Today so far</th><th>Verdict</th></tr></thead>`;
-function line(r,ix,extra){
+const dm=(r,i)=>{const x=mg(r.P[i],r.R[i],r.S[i]);return x===null?-99:x};
+const RANK={'Scale hard':5,'Scale':4,'Hold':3,'Wait':2,'Lower':1};
+const COLS=[['Product · country',x=>(x.r.prod+' '+x.r.land).toLowerCase()],['Budget',x=>x.r.M&&x.r.M.st==='ACTIVE'?x.r.M.B:-1],['Spend 7 d',x=>s(x.r.M?x.r.M.MS:x.r.S,[0,1,2,3,4,5,6])],['Spend',x=>x.a.S],['Orders',x=>x.a.O],['Rev.',x=>x.a.R],['ROAS',x=>x.a.S?x.a.R/x.a.S:-1],['Profit',x=>x.a.P],['Profit %',x=>x.m===null?-99:x.m],['Per day',x=>dm(x.r,T-1)],['Today so far',x=>dm(x.r,T)],['Verdict',x=>RANK[x.v[1]]||0]];
+const SORT={top:{c:7,d:-1},hold:{c:7,d:-1},leak:{c:7,d:1},off:{c:3,d:-1}};
+function drawList(id,items,ix,empty){
+  const so=SORT[id],key=COLS[so.c][1];
+  items.forEach(x=>x.v=verdict(x.r,ix));
+  items.sort((x,y)=>{const a=key(x),b=key(y);return (a<b?-1:a>b?1:0)*so.d||y.a.S-x.a.S});
+  const el=document.getElementById('sc-'+id);
+  el.innerHTML='<thead><tr>'+COLS.map((c,i)=>`<th data-c="${i}" title="Sort">${c[0]}${so.c===i?(so.d<0?' ↓':' ↑'):''}</th>`).join('')+'</tr></thead><tbody>'+(items.map(x=>line(x.r,ix)).join('')||`<tr><td colspan="12" class="dim">${empty}</td></tr>`)+'</tbody>';
+  el.querySelectorAll('th[data-c]').forEach(th=>th.onclick=()=>{const c=+th.dataset.c;SORT[id]=so.c===c?{c,d:-so.d}:{c,d:c===0?1:-1};render()});
+}
+function line(r,ix){
   const a=agg([r],ix),m=mg(a.P,a.R,a.S),v=verdict(r,ix);
-  return `<tr><td class="nm" title="${esc(r.name)}">${label(r)}</td><td><span class="b">${budget(r)}</span> ${since(r)}</td><td>${bars(r)}</td><td>${kr(a.S)}</td><td>${num(a.O)}</td><td>${kr(a.R)}</td><td>${a.S?(a.R/a.S).toFixed(2).replace('.',','):'–'}</td><td class="${a.P>=0?'pos':'neg'}">${kr(a.P)}</td><td class="b ${tcl(m)}">${pct(m)}</td>${extra(a)}<td>${pills(r,ix)}</td><td>${today(r)}</td><td><span class="vd ${v[0]}" title="${v[2]}">${v[1]}</span></td></tr>`;
+  return `<tr><td class="nm" title="${esc(r.name)}">${label(r)}</td><td><span class="b">${budget(r)}</span> ${since(r)}</td><td>${bars(r)}</td><td>${kr(a.S)}</td><td>${num(a.O)}</td><td>${kr(a.R)}</td><td>${a.S?(a.R/a.S).toFixed(2).replace('.',','):'–'}</td><td class="${a.P>=0?'pos':'neg'}">${kr(a.P)}</td><td class="b ${tcl(m)}">${pct(m)}</td><td>${pills(r,ix)}</td><td>${today(r)}</td><td><span class="vd ${v[0]}" title="${v[2]}">${v[1]}</span></td></tr>`;
 }
 function detail(r){
   let h='';const M=r.M;
@@ -409,31 +408,29 @@ function detail(r){
   }
   return h;
 }
+window.scaleCounts=function(storeName){let up=0,down=0;const ix=idx();for(const r of rows){if(storeName&&r.store!==storeName)continue;if(r.M&&r.M.st!=='ACTIVE')continue;const a=agg([r],ix);if(!(a.S>0||a.R>0||a.P!==0))continue;const v=verdict(r,ix)[1];if(v==='Scale'||v==='Scale hard')up++;else if(v==='Lower')down++}return{up,down}};
 function render(){
-  try{localStorage.setItem('scWin',win);localStorage.setItem('scBrand',brand)}catch(e){}
+  try{localStorage.setItem('scBrand',brand)}catch(e){}
   const ix=idx();
   const list=rows.filter(r=>brand==='All'||r.brand===brand);
   const restL=rest.filter(r=>brand==='All'||r.brand===brand);
   const d0=new Date(D.days[ix[0]]),d1=new Date(D.days[ix[ix.length-1]]);
-  document.getElementById('sc-meta').textContent=(win===1?dlab(ix[0]):`${dlab(ix[0])} – ${dlab(ix[ix.length-1])}`)+' · below 15 % leaks, 15–20 % hold, above 20 % scale';
+  {const sm=document.getElementById('sc-meta');sm.textContent=(ix.length===1?dlab(ix[0]):`${dlab(ix[0])} – ${dlab(ix[ix.length-1])}`);sm.title=capped()?'Campaign lists cover the last 7 full days':''}
   const tot=agg(list.concat(restL),ix),tm=mg(tot.P,tot.R,tot.S),td=agg(list.concat(restL),[T]),tdm=mg(td.P,td.R,td.S);
   document.getElementById('sc-kpis').innerHTML=
-    `<div class="k ${tm!==null&&tm>=UP?'good':tm!==null&&tm>=HOLD?'':'low'}"><p class="kl">Profit % (${win===1?'yesterday':win+' days'})</p><p class="kv">${tm===null?'–':(tm*100).toFixed(1).replace('.',',')+' %'}</p><p class="ks">Today so far ${pct(tdm)}</p></div>`+
+    `<div class="k ${tm!==null&&tm>=UP?'good':tm!==null&&tm>=HOLD?'':'low'}"><p class="kl">Profit %</p><p class="kv">${tm===null?'–':(tm*100).toFixed(1).replace('.',',')+' %'}</p><p class="ks">Today so far ${pct(tdm)}</p></div>`+
     `<div class="k"><p class="kl">Profit</p><p class="kv">${kr(tot.P)}</p><p class="ks">Today ${kr(td.P)}</p></div>`+
     `<div class="k"><p class="kl">Revenue</p><p class="kv">${kr(tot.R)}</p><p class="ks">Today ${kr(td.R)}</p></div>`+
     `<div class="k"><p class="kl">Spend</p><p class="kv">${kr(tot.S)}</p><p class="ks">Today ${kr(td.S)}</p></div>`+
     `<div class="k"><p class="kl">Orders</p><p class="kv">${num(tot.O)}</p><p class="ks">Today ${num(td.O)}</p></div>`;
   const live=r=>!r.M||r.M.st==='ACTIVE';
   const all=list.filter(r=>s(r.S,ix)>0||s(r.R,ix)>0||s(r.P,ix)!==0).map(r=>{const a=agg([r],ix);return{r,a,m:mg(a.P,a.R,a.S)}});
-  const act=all.filter(x=>live(x.r)),off=all.filter(x=>!live(x.r)).sort((x,y)=>y.a.S-x.a.S);
-  const top=act.filter(x=>x.m!==null&&x.m>=UP).sort((x,y)=>y.a.P-x.a.P);
-  const hold=act.filter(x=>x.m!==null&&x.m>=HOLD&&x.m<UP).sort((x,y)=>y.a.P-x.a.P);
-  const leak=act.filter(x=>x.m!==null&&x.m<HOLD).map(x=>(x.gap=HOLD*x.a.R-x.a.P,x)).sort((x,y)=>y.gap-x.gap);
-  document.getElementById('sc-top').innerHTML=HEAD('')+'<tbody>'+(top.map(x=>line(x.r,ix,()=>'')).join('')||'<tr><td colspan="12" class="dim">Nothing above 20 % in the period.</td></tr>')+'</tbody>';
-  document.getElementById('sc-hold').innerHTML=HEAD('')+'<tbody>'+(hold.map(x=>line(x.r,ix,()=>'')).join('')||'<tr><td colspan="12" class="dim">Nothing between 15 and 20 % in the period.</td></tr>')+'</tbody>';
-  document.getElementById('sc-leak').innerHTML=HEAD('<th>Missing to 15 %</th>')+'<tbody>'+(leak.map(x=>line(x.r,ix,a=>`<td class="neg b">${kr(HOLD*a.R-a.P)}</td>`)).join('')||'<tr><td colspan="13" class="dim">No leaks in the period.</td></tr>')+'</tbody>';
+  const act=all.filter(x=>live(x.r)),off=all.filter(x=>!live(x.r));
+  drawList('top',act.filter(x=>x.m!==null&&x.m>=UP),ix,'Nothing above 20 % in the period.');
+  drawList('hold',act.filter(x=>x.m!==null&&x.m>=HOLD&&x.m<UP),ix,'Nothing between 15 and 20 % in the period.');
+  drawList('leak',act.filter(x=>x.m!==null&&x.m<HOLD),ix,'No leaks in the period.');
   document.getElementById('sc-offn').textContent=off.length;document.getElementById('sc-offd').style.display=off.length?'':'none';
-  document.getElementById('sc-off').innerHTML=HEAD('')+'<tbody>'+off.map(x=>line(x.r,ix,()=>'')).join('')+'</tbody>';
+  drawList('off',off,ix,'');
   const cell=(a)=>{const m=mg(a.P,a.R,a.S);return `<td>${kr(a.S)}</td><td>${num(a.O)}</td><td>${kr(a.R)}</td><td class="${a.P>=0?'pos':'neg'}">${kr(a.P)}</td><td class="b ${tcl(m)}">${pct(m)}</td>`};
   const sumr=l=>{const f={S:Array(8).fill(0),R:Array(8).fill(0),P:Array(8).fill(0)};l.forEach(r=>{for(const k of 'SRP')r[k].forEach((v,i)=>f[k][i]+=v)});return f};
   let h='<thead><tr><th>Brand / product / country</th><th>Budget now</th><th>Spend</th><th>Orders</th><th>Rev.</th><th>Profit</th><th>Profit %</th><th>Per day</th><th>Today so far</th><th>Verdict</th></tr></thead><tbody>';
@@ -454,19 +451,19 @@ function render(){
         if(op){
           h+=detail(r.r);
           const ads=Object.entries(r.r.ads).map(([n,a])=>({n,a,g:agg([a],ix)})).filter(x=>x.g.S>0||x.g.R>0).sort((x,y)=>y.g.S-x.g.S);
-          if(ads.length)h+=`<tr class="dt hd"><td colspan="10">Ads (${win===1?'yesterday':win+' days'})</td></tr>`;
+          if(ads.length)h+=`<tr class="dt hd"><td colspan="10">Ads</td></tr>`;
           for(const x of ads.slice(0,8))h+=`<tr class="ad"><td class="nm" title="${esc(x.n)}">${esc(x.n)}</td><td></td>${cell(x.g)}<td>${pills(x.a,ix)}</td><td>${today(x.a)}</td><td></td></tr>`;
           if(ads.length>8)h+=`<tr class="ad"><td class="dim" colspan="10">+ ${ads.length-8} more ads</td></tr>`;
         }
       }
     }
     const ra=agg(br,ix);
-    if(Math.abs(ra.R)+Math.abs(ra.P)+Math.abs(ra.S)>0){h+=`<tr class="ld" style="cursor:default"><td class="dim">Not tied to an ad</td><td></td><td class="dim">${kr(ra.S)}</td><td class="dim">${num(ra.O)}</td><td class="dim">${kr(ra.R)}</td><td class="dim">${kr(ra.P)}</td><td colspan="4"></td></tr>`}
+    if(Math.abs(ra.R)+Math.abs(ra.P)+Math.abs(ra.S)>0){h+=`<tr class="ld" style="cursor:default"><td class="dim" title="Orders and costs Juicy cannot link to an ad">No ad</td><td></td><td class="dim">${kr(ra.S)}</td><td class="dim">${num(ra.O)}</td><td class="dim">${kr(ra.R)}</td><td class="dim">${kr(ra.P)}</td><td colspan="4"></td></tr>`}
   }
   document.getElementById('sc-tree').innerHTML=h+'</tbody>';
   document.querySelectorAll('#sc-tree tr.ld[data-id]').forEach(tr=>tr.onclick=()=>{const id=decodeURIComponent(tr.dataset.id);open[id]=!open[id];render()});
   // datakontroll
-  let c=`<thead><tr><th>Brand</th><th>Juicy (${win===1?'yesterday':win+' d'})</th><th>Meta</th><th>Difference</th><th>Juicy today</th><th>Meta today</th><th>Juicy is behind</th><th>Status</th></tr></thead><tbody>`;
+  let c=`<thead><tr><th>Brand</th><th>Juicy</th><th>Meta</th><th>Difference</th><th>Juicy today</th><th>Meta today</th><th>Juicy is behind</th><th>Status</th></tr></thead><tbody>`;
   for(const b of BORDER){
     const bl=rows.filter(r=>r.brand===b&&r.M);if(!bl.length)continue;
     const j=bl.reduce((t,r)=>t+s(r.S,ix),0),m=bl.reduce((t,r)=>t+s(r.M.MS,ix),0),jt=bl.reduce((t,r)=>t+r.S[T],0),mt=bl.reduce((t,r)=>t+r.M.MS[T],0);
@@ -475,53 +472,12 @@ function render(){
     c+=`<tr><td>${b}</td><td>${kr(j)}</td><td>${kr(m)}</td><td>${kr(j-m)}</td><td>${kr(jt)}</td><td>${kr(mt)}</td><td>${mt?Math.round((1-jt/mt)*100)+' %':'–'}</td><td><span class="vd ${df<0.02?'g':'r'}">${df<0.02?'Matches':'Differs '+Math.round(df*100)+' %'}</span></td></tr>`;
   }
   document.getElementById('sc-chk').innerHTML=c+'</tbody>';
-  document.getElementById('sc-wb').innerHTML=[1,2,3,7].map(n=>`<button class="${n===win?'on':''}" data-w="${n}">${n===1?'Yesterday':n+' days'}</button>`).join(' ');
-  document.querySelectorAll('#sc-wb button').forEach(b=>b.onclick=()=>{win=+b.dataset.w;render()});
   document.getElementById('sc-bb').innerHTML=['All'].concat(BORDER).map(n=>`<button class="${n===brand?'on':''}" data-b="${n}">${n}</button>`).join(' ');
   document.querySelectorAll('#sc-bb button').forEach(b=>b.onclick=()=>{brand=b.dataset.b;render()});
 }
-render();
+window.scaleRender=render;window.render();
 })();
 
-</script>
-<script>
-(function(){
-const S=DATA.scale;if(!S||!S.days)return;
-const BR={SE:'Isella',DK:'Isella',NO:'Isella',FI:'Isella',DE:'Isella',HOMELYST:'Homelyst',HUSTOVALD:'Hus Tovald',JUNO:'Juno',EARLO:'Earlo'};
-const ent=Object.entries(S.stores),sm=(list,k,ix)=>list.reduce((t,[c,s])=>t+ix.reduce((a,i)=>a+(s[k][i]||0),0),0);
-const mg=(list,ix)=>{const r=sm(list,'R',ix);return r>0?sm(list,'P',ix)/r*100:null};
-const H={m2:mg(ent,[5,6]),today:mg(ent,[7]),profit:sm(ent,'P',[5,6]),spend:sm(ent,'S',[5,6]),
-  scaleN:document.querySelectorAll('#sc-top .vd.g').length,holdN:document.querySelectorAll('#sc-hold .vd').length,
-  leakN:document.querySelectorAll('#sc-leak .vd.a,#sc-leak .vd.r').length,
-  brands:[...new Set(ent.map(([c])=>BR[c]))].map(b=>{const l=ent.filter(([c])=>BR[c]===b);return{name:b,m2:mg(l,[5,6]),mt:mg(l,[7])}}).filter(b=>b.m2!==null)};
-const p1=v=>v===null?'–':v.toFixed(1).replace('.',',')+' %',kr=n=>Math.round(n).toLocaleString('sv-SE').replace(/ /g,' ')+' kr';
-const hero=document.createElement('section');hero.id='hero';
-document.getElementById('meta').after(hero);
-const num=s=>parseFloat(String(s).replace(/\s/g,'').replace('−','-').replace(',','.'));
-let first=true;
-function draw(){
-  const ks=document.querySelectorAll('#sc-kpis .k'),on=id=>(document.querySelector('#'+id+' button.on')||{}).textContent||'';
-  const mTxt=ks[0].querySelector('.kv').textContent,m=num(mTxt),has=!isNaN(m);
-  const w=on('sc-wb'),br=on('sc-bb'),per=w==='Yesterday'?'yesterday':'last '+w;
-  const z=!has?['n','']:m>=25?['g','Scale hard']:m>=20?['g','Scale']:m>=15?['a','Hold']:['r','Below 15 %'];
-  const x=has?Math.max(0,Math.min(40,m))/40*100:0;
-  const cnt=sel=>document.querySelectorAll(sel).length;
-  hero.innerHTML=`<div><div class="lab">Profit ${per}${br&&br!=='All'?' · '+br:''}</div>
-  <div class="num"><span class="big" id="hbig">${has?mTxt:'–'}</span>${z[1]?`<span class="chip ${z[0]}">${z[1]}</span>`:''}</div>
-  <div class="track"><b style="background:var(--bad)"></b><b style="background:var(--warn)"></b><b style="background:var(--ok)"></b><b style="background:var(--ok)"></b><i class="dot" style="--x:${first?0:x}%"></i></div>
-  <div class="marks"><span style="left:37.5%">15 %</span><span style="left:50%">20 %</span><span style="left:62.5%">25 %</span></div></div>
-  <dl><div><dt>Today so far</dt><dd>${ks[0].querySelector('.ks').textContent.replace('Today so far ','')}</dd></div><div><dt>Profit</dt><dd>${ks[1].querySelector('.kv').textContent}</dd></div><div><dt>To scale</dt><dd style="color:var(--ok)">${cnt('#sc-top .vd.g')}</dd></div><div><dt>To lower</dt><dd style="color:var(--bad)">${cnt('#sc-leak .vd.a,#sc-leak .vd.r')}</dd></div></dl>`;
-  if(first&&has&&!matchMedia('(prefers-reduced-motion: reduce)').matches){
-    const big=document.getElementById('hbig'),dot=hero.querySelector('.dot'),t0=performance.now();
-    requestAnimationFrame(()=>dot.style.setProperty('--x',x+'%'));
-    (function step(t){const k=Math.min(1,(t-t0)/600),e=1-Math.pow(1-k,3);big.textContent=(m*e).toFixed(1).replace('.',',')+' %';if(k<1)requestAnimationFrame(step);else big.textContent=mTxt})(t0);
-  }else if(first){hero.querySelector('.dot').style.setProperty('--x',x+'%')}
-  first=false;
-}
-draw();
-document.getElementById('scale').addEventListener('click',e=>{if(e.target.closest('#sc-wb button,#sc-bb button'))setTimeout(draw,0)},true);
-
-})();
 </script>
 </body>
 </html>

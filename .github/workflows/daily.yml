@@ -102,9 +102,9 @@ jobs:
           SALT: ${{ secrets.DAGSRAPPORT_SALT }}
         run: |
           npx -y staticrypt@3.5.4 site/index.html -d site -p "$PW" --salt "$SALT" --config false --short \
-            --remember 365 --template-title "Dagsrapport" --template-instructions "Skriv lösenordet" \
-            --template-placeholder "Lösenord" --template-button "Öppna" --template-remember "Kom ihåg mig" \
-            --template-error "Fel lösenord" --template-color-primary "#1baf7a" --template-color-secondary "#f6f5f2"
+            --remember 365 --template-title "Profit sheet" --template-instructions "Enter the password" \
+            --template-placeholder "Password" --template-button "Open" --template-remember "Remember me" \
+            --template-error "Wrong password" --template-color-primary "#1baf7a" --template-color-secondary "#f6f5f2"
           grep -q "staticrypt" site/index.html
           TZ=Europe/Stockholm date +%F > site/built.txt
 
