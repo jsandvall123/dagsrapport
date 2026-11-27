@@ -37,7 +37,7 @@ AD_ACCOUNT = "act_3037939703006283"
 # Homelyst borttagen 17 nov 2026 (Johns beslut): 80–90k omsättning med ~10 % vinst, budgetar sätts manuellt.
 SURF_STORES = ["SE", "DK", "NO", "FI", "DE"]  # butikskoder från owner() i build.py
 SNAPSHOT_AT = 7
-BF_DATES = {"2026-11-27"}  # Black Friday-läget, se reglerna överst
+BF_DATES = {"2026-11-27", "2026-11-28"}  # lör 28 nov tillagd 28 nov (John: fortsätt med samma)  # Black Friday-läget, se reglerna överst
 BF_SNAPSHOT_AT = 6
 BF_UP = 0.25  # vinst-% som krävs för höjning (dagen och senaste fönstret)
 BF_DOWN = 0.20  # under detta i senaste fönstret: tillbaka till förra nivån
